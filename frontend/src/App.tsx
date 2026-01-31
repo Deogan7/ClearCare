@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import AppShell from "./components/common/AppShell";
 import DashboardPage from "./pages/DashboardPage";
 import ReferralsPage from "./pages/Referrals/ReferralsPage";
 import ReferralDetailPage from "./pages/Referrals/ReferralDetailPage";
