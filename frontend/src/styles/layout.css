@@ -368,6 +368,7 @@
 }
 
 .form-field input[type="text"],
+.form-field input[type="password"],
 .form-field input[type="tel"],
 .form-field input[type="date"],
 .form-field select,
@@ -465,6 +466,40 @@
 
 .delete-warning strong {
   color: var(--danger);
+}
+
+/* ── Login ── */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(1200px 600px at 30% 20%, #eef1f5 0%, transparent 60%),
+    radial-gradient(900px 500px at 70% 80%, #e9eef7 0%, transparent 55%),
+    var(--bg);
+}
+
+.login-card {
+  width: min(400px, 90vw);
+  padding: var(--space-7);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+.login-header h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  margin: 0 0 var(--space-1) 0;
+}
+
+.login-header p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
 }
 
 @keyframes shimmer {
