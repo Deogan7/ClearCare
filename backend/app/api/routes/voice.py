@@ -7,8 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.patient import Patient
+from app.models.user import User
 from app.models.referral import Referral, ReferralStatus
 from app.schemas.voice import VerifyReferralRequest, VoiceCallResponse, WebhookResult
 from app.services import referral_service, voice_service
@@ -74,6 +76,7 @@ async def trigger_verification_call(
     ticket_id: str,
     body: VerifyReferralRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Trigger an outbound Vapi call to verify a referral was received."""
     referral = await referral_service.get_referral_by_ticket_id(db, ticket_id)
@@ -103,6 +106,7 @@ async def trigger_verification_call(
 async def trigger_patient_checkin(
     patient_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Trigger a follow-up call to a patient about their most urgent referral."""
     # Look up patient
