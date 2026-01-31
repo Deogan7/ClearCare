@@ -104,14 +104,13 @@ export default function PatientFormModal({
     }
   };
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <Modal>
+    <Modal
+      open={open}
+      title={patient ? "Edit Patient" : "Create Patient"}
+      onClose={onClose}
+    >
       <form onSubmit={handleSubmit}>
-        <h2>{patient ? "Edit Patient" : "Create Patient"}</h2>
         {error ? <div>{error}</div> : null}
         <label>
           First name

@@ -27,9 +27,18 @@ Wait a few seconds for PostgreSQL to become healthy.
 
 ### 2. Activate the virtual environment
 
+macOS/Linux:
+
 ```bash
 cd backend
 source venv/bin/activate
+```
+
+Windows (PowerShell):
+
+```powershell
+cd backend
+venv\Scripts\activate
 ```
 
 ### 3. Install dependencies
@@ -45,8 +54,16 @@ The bcrypt pin is needed because `passlib` is not compatible with bcrypt 4.1+.
 
 The `.env` file uses `db` as the hostname (for Docker Compose networking). When running locally outside Docker, override it:
 
+macOS/Linux:
+
 ```bash
 export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ridgecare
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/ridgecare"
 ```
 
 ### 5. Run migrations
@@ -93,5 +110,5 @@ curl -s http://localhost:8000/api/patients/ \
 ## Notes
 
 - Add a real `SECRET_KEY` in `.env` for production (do not use the default)
-- The voice webhook (`POST /api/voice/webhook`) is intentionally unprotected — it is called by the external Vapi service
-- If your local PostgreSQL is running on port 5432, stop it first (`brew services stop postgresql@16`) so the Docker container can bind to that port
+- The voice webhook (`POST /api/voice/webhook`) is intentionally unprotected -- it is called by the external Vapi service
+- If your local PostgreSQL is running on port 5432, stop it first so the Docker container can bind to that port

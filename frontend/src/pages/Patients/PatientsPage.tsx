@@ -25,8 +25,8 @@ export default function PatientsPage() {
         getPatients(),
         getReferrals(),
       ]);
-      setPatients(patientResponse.data);
-      setReferrals(referralResponse.data);
+      setPatients(Array.isArray(patientResponse.data) ? patientResponse.data : []);
+      setReferrals(Array.isArray(referralResponse.data) ? referralResponse.data : []);
     } catch {
       setError("Unable to load patients.");
     } finally {
@@ -40,6 +40,9 @@ export default function PatientsPage() {
 
   const activeReferralCounts = useMemo(() => {
     const counts = new Map<string, number>();
+    if (!Array.isArray(referrals)) {
+      return counts;
+    }
     referrals.forEach((referral) => {
       if (referral.status !== "resolved") {
         counts.set(

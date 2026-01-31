@@ -73,14 +73,9 @@ export default function ReferralFormModal({
     }
   };
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <Modal>
+    <Modal open={open} title="Create Referral" onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <h2>Create Referral</h2>
         {error ? <div>{error}</div> : null}
         <label>
           Patient

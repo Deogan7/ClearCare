@@ -6,7 +6,7 @@ import type {
 } from "../types/patient";
 
 export async function getPatients() {
-  return api.get<Patient[]>("/patients");
+  return api.get<Patient[]>("/patients/");
 }
 
 export async function getPatient(id: string) {
@@ -14,9 +14,9 @@ export async function getPatient(id: string) {
 }
 
 export async function createPatient(data: PatientCreatePayload) {
-  return api.post<Patient>("/patients", data);
+  return api.post<Patient>("/patients/", data);
 }
 
 export async function updatePatient(id: string, data: PatientUpdatePayload) {
-  return api.put<Patient>(`/patients/${id}`, data);
+  return api.patch<Patient>(`/patients/${id}`, data);
 }
