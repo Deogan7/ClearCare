@@ -8,6 +8,7 @@ import { getReferrals } from "../../services/referralService";
 import type { Patient } from "../../types/patient";
 import type { Referral } from "../../types/referral";
 import PatientFormModal from "./PatientFormModal";
+import DeletePatientModal from "./DeletePatientModal";
 
 export default function PatientsPage() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Patient | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -69,7 +71,7 @@ export default function PatientsPage() {
           <div>No patients found.</div>
         ) : null}
         {!loading && !error && patients.length > 0 ? (
-          <Table headers={["Name", "Phone", "High-risk flag", "Active referrals"]}>
+          <Table headers={["Name", "Phone", "High-risk flag", "Active referrals", ""]}>
               {patients.map((patient) => (
                 <tr key={patient.id}>
                   <td>
@@ -83,6 +85,15 @@ export default function PatientsPage() {
                   <td>{patient.phone}</td>
                   <td>{patient.is_high_risk ? "Yes" : "No"}</td>
                   <td>{activeReferralCounts.get(patient.id) ?? 0}</td>
+                  <td>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      onClick={() => setDeleteTarget(patient)}
+                    >
+                      Delete
+                    </Button>
+                  </td>
                 </tr>
               ))}
           </Table>
@@ -92,6 +103,12 @@ export default function PatientsPage() {
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSaved={loadData}
+      />
+      <DeletePatientModal
+        open={deleteTarget !== null}
+        patient={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onDeleted={loadData}
       />
     </AppShell>
   );

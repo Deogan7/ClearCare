@@ -20,3 +20,7 @@ export async function createPatient(data: PatientCreatePayload) {
 export async function updatePatient(id: string, data: PatientUpdatePayload) {
   return api.patch<Patient>(`/patients/${id}`, data);
 }
+
+export async function deletePatient(id: string) {
+  return api.delete(`/patients/${id}`);
+}
