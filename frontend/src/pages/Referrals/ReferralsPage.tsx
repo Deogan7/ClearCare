@@ -46,8 +46,12 @@ export default function ReferralsPage() {
         getReferrals(),
         getPatients(),
       ]);
-      setReferrals(referralResponse.data);
-      setPatients(patientResponse.data);
+      setReferrals(
+        Array.isArray(referralResponse.data) ? referralResponse.data : []
+      );
+      setPatients(
+        Array.isArray(patientResponse.data) ? patientResponse.data : []
+      );
     } catch {
       setError("Unable to load referrals.");
     } finally {
@@ -61,6 +65,9 @@ export default function ReferralsPage() {
 
   const patientNameById = useMemo(() => {
     const map = new Map<string, string>();
+    if (!Array.isArray(patients)) {
+      return map;
+    }
     patients.forEach((patient) => {
       map.set(patient.id, `${patient.first_name} ${patient.last_name}`);
     });
@@ -68,6 +75,9 @@ export default function ReferralsPage() {
   }, [patients]);
 
   const filteredReferrals = useMemo(() => {
+    if (!Array.isArray(referrals)) {
+      return [];
+    }
     if (statusFilter === "all") {
       return referrals;
     }
