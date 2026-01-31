@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # Safety net
     SAFETY_NET_HOURS: int = 48
 
+    # Auth
+    SECRET_KEY: str = "CHANGE-ME-IN-PRODUCTION"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hour shift
+    ALGORITHM: str = "HS256"
+
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
 
     class Config:

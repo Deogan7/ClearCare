@@ -5,8 +5,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
-from app.api.routes import referrals, weather, voice, patients
+from app.core.middleware import HTTPSRedirectMiddleware
+
+from app.api.routes import auth, referrals, weather, voice, patients
 from app.core.config import settings
 from app.db.session import engine
 from app.models import base
@@ -49,6 +53,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(HTTPSRedirectMiddleware)
+
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(referrals.router, prefix="/api/referrals", tags=["referrals"])
 app.include_router(patients.router, prefix="/api/patients", tags=["patients"])
 app.include_router(weather.router, prefix="/api/weather", tags=["weather"])
