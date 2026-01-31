@@ -451,6 +451,22 @@
   font-weight: 500;
 }
 
+/* ── Delete confirmation ── */
+
+.delete-warning {
+  padding: var(--space-4) var(--space-5);
+  background: rgba(240, 68, 56, 0.06);
+  border: 1px solid rgba(240, 68, 56, 0.18);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.delete-warning strong {
+  color: var(--danger);
+}
+
 @keyframes shimmer {
   0% { background-position: 0% 0%; }
   100% { background-position: 200% 0%; }
