@@ -3,6 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -70,6 +71,11 @@ app.include_router(referrals.router, prefix="/api/referrals", tags=["referrals"]
 app.include_router(patients.router, prefix="/api/patients", tags=["patients"])
 app.include_router(weather.router, prefix="/api/weather", tags=["weather"])
 app.include_router(voice.router, prefix="/api/voice", tags=["voice"])
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health")
