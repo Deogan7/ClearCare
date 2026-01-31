@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Layout from "../../components/common/Layout";
+import AppShell from "../../components/common/AppShell";
 import Table from "../../components/common/Table";
 import Button from "../../components/common/Button";
 import { getPatients } from "../../services/patientService";
@@ -52,7 +52,7 @@ export default function PatientsPage() {
   }, [referrals]);
 
   return (
-    <Layout>
+    <AppShell>
       <div>
         <h1>Patients</h1>
         <div>
@@ -100,6 +100,6 @@ export default function PatientsPage() {
         onClose={() => setIsModalOpen(false)}
         onSaved={loadData}
       />
-    </Layout>
+    </AppShell>
   );
 }

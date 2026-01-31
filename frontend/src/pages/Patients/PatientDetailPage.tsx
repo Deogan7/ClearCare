@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Layout from "../../components/common/Layout";
+import AppShell from "../../components/common/AppShell";
 import Table from "../../components/common/Table";
 import Button from "../../components/common/Button";
 import { getPatient } from "../../services/patientService";
@@ -72,25 +72,25 @@ export default function PatientDetailPage() {
 
   if (loading) {
     return (
-      <Layout>
+      <AppShell>
         <div>Loading patient...</div>
-      </Layout>
+      </AppShell>
     );
   }
 
   if (error || !patient) {
     return (
-      <Layout>
+      <AppShell>
         <div>{error ?? "Patient not found."}</div>
         <Button type="button" onClick={() => navigate("/patients")}>
           Back to patients
         </Button>
-      </Layout>
+      </AppShell>
     );
   }
 
   return (
-    <Layout>
+    <AppShell>
       <div>
         <Button type="button" onClick={() => navigate("/patients")}>
           Back to patients
@@ -166,6 +166,6 @@ export default function PatientDetailPage() {
         onClose={() => setIsModalOpen(false)}
         onSaved={loadData}
       />
-    </Layout>
+    </AppShell>
   );
 }

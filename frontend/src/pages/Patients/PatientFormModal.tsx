@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Modal from "../../components/common/Modal";
-import Form from "../../components/common/Form";
 import Button from "../../components/common/Button";
 import {
   createPatient,
@@ -111,7 +110,7 @@ export default function PatientFormModal({
 
   return (
     <Modal>
-      <Form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit}>
         <h2>{patient ? "Edit Patient" : "Create Patient"}</h2>
         {error ? <div>{error}</div> : null}
         <label>
@@ -177,7 +176,7 @@ export default function PatientFormModal({
             Cancel
           </Button>
         </div>
-      </Form>
+      </form>
     </Modal>
   );
 }

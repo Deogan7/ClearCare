@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Layout from "../../components/common/Layout";
+import AppShell from "../../components/common/AppShell";
 import Button from "../../components/common/Button";
-import Form from "../../components/common/Form";
 import Table from "../../components/common/Table";
 import { getReferral, updateReferral } from "../../services/referralService";
 import { getPatient } from "../../services/patientService";
@@ -157,25 +156,25 @@ export default function ReferralDetailPage() {
 
   if (loading) {
     return (
-      <Layout>
+      <AppShell>
         <div>Loading referral...</div>
-      </Layout>
+      </AppShell>
     );
   }
 
   if (error || !referral) {
     return (
-      <Layout>
+      <AppShell>
         <div>{error ?? "Referral not found."}</div>
         <Button type="button" onClick={() => navigate("/referrals")}>
           Back to referrals
         </Button>
-      </Layout>
+      </AppShell>
     );
   }
 
   return (
-    <Layout>
+    <AppShell>
       <div>
         <Button type="button" onClick={() => navigate("/referrals")}>
           Back to referrals
@@ -234,7 +233,7 @@ export default function ReferralDetailPage() {
         </div>
         <h2>Update details</h2>
         {updateError ? <div>{updateError}</div> : null}
-        <Form onSubmit={handleUpdate}>
+        <form onSubmit={handleUpdate}>
           <label>
             Scheduled date
             <input
@@ -253,8 +252,8 @@ export default function ReferralDetailPage() {
           <Button type="submit" disabled={saving}>
             {saving ? "Saving..." : "Save changes"}
           </Button>
-        </Form>
+        </form>
       </div>
-    </Layout>
+    </AppShell>
   );
 }

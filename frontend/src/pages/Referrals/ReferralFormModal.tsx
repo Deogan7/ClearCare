@@ -1,6 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
 import Modal from "../../components/common/Modal";
-import Form from "../../components/common/Form";
 import Button from "../../components/common/Button";
 import { createReferral } from "../../services/referralService";
 import type { Patient } from "../../types/patient";
@@ -80,7 +79,7 @@ export default function ReferralFormModal({
 
   return (
     <Modal>
-      <Form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit}>
         <h2>Create Referral</h2>
         {error ? <div>{error}</div> : null}
         <label>
@@ -144,7 +143,7 @@ export default function ReferralFormModal({
             Cancel
           </Button>
         </div>
-      </Form>
+      </form>
     </Modal>
   );
 }
