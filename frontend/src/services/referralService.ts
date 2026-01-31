@@ -1,16 +1,30 @@
 import api from "./api";
+import type {
+  Referral,
+  ReferralCreatePayload,
+  ReferralUpdatePayload,
+} from "../types/referral";
 
-export async function getReferrals() {
-  return api.get("/referrals");
+export async function getReferrals(status?: string) {
+  if (status) {
+    return api.get<Referral[]>(
+      `/referrals/?status=${encodeURIComponent(status)}`
+    );
+  }
+  return api.get<Referral[]>("/referrals/");
 }
 
-export async function createReferral(data: Record<string, unknown>) {
-  return api.post("/referrals", data);
+export async function getReferral(ticketId: string) {
+  return api.get<Referral>(`/referrals/${ticketId}`);
+}
+
+export async function createReferral(data: ReferralCreatePayload) {
+  return api.post<Referral>("/referrals/", data);
 }
 
 export async function updateReferral(
   ticketId: string,
-  data: Record<string, unknown>
+  data: ReferralUpdatePayload
 ) {
-  return api.patch(`/referrals/${ticketId}`, data);
+  return api.patch<Referral>(`/referrals/${ticketId}`, data);
 }
