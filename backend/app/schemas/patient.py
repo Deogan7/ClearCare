@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date
 
 from pydantic import BaseModel
 
@@ -8,7 +8,7 @@ class PatientBase(BaseModel):
     first_name: str
     last_name: str
     phone: str
-    date_of_birth: datetime | None = None
+    date_of_birth: date | None = None
     is_high_risk: bool = False
     address: str | None = None
     notes: str | None = None
@@ -22,7 +22,7 @@ class PatientUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     phone: str | None = None
-    date_of_birth: datetime | None = None
+    date_of_birth: date | None = None
     is_high_risk: bool | None = None
     address: str | None = None
     notes: str | None = None
