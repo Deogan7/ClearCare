@@ -8,6 +8,8 @@ from app.db.session import async_session
 from app.models.patient import Patient
 from app.models.referral import Referral
 from app.models.referral import ReferralStatus
+from app.models.user import User
+from app.core.security import hash_password
 
 
 async def seed():
@@ -106,9 +108,25 @@ async def seed():
         )
 
         db.add_all([r1, r2, r3, r4])
+
+        # -- Users --
+        admin = User(
+            username="admin",
+            hashed_password=hash_password("changeme123"),
+            full_name="System Administrator",
+            role="admin",
+        )
+        nurse = User(
+            username="nurse.adams",
+            hashed_password=hash_password("changeme123"),
+            full_name="Nurse Adams",
+            role="nurse",
+        )
+        db.add_all([admin, nurse])
+
         await db.commit()
 
-    print("Seeded 4 patients and 4 referrals.")
+    print("Seeded 4 patients, 4 referrals, and 2 users.")
 
 
 if __name__ == "__main__":
