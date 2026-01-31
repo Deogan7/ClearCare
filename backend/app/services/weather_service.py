@@ -1,4 +1,4 @@
-"""OpenWeatherMap polling and Storm Mode trigger logic."""
+"""WeatherAPI polling and Storm Mode trigger logic."""
 
 import logging
 from dataclasses import dataclass
@@ -18,25 +18,28 @@ class WeatherCondition:
     is_severe: bool
 
 
+def _build_location_query() -> str:
+    return f"{settings.WEATHER_LOCATION_LAT},{settings.WEATHER_LOCATION_LON}"
+
+
 async def fetch_current_weather() -> WeatherCondition:
-    """Poll OpenWeatherMap for current conditions at the configured location."""
-    url = f"{settings.WEATHER_API_BASE_URL}/weather"
+    """Poll WeatherAPI for current conditions at the configured location."""
+    url = f"{settings.WEATHER_API_BASE_URL}/current.json"
     params = {
-        "lat": settings.WEATHER_LOCATION_LAT,
-        "lon": settings.WEATHER_LOCATION_LON,
-        "appid": settings.WEATHER_API_KEY,
-        "units": "metric",
+        "key": settings.WEATHER_API_KEY,
+        "q": _build_location_query(),
     }
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
         data = resp.json()
 
-    temp_c = data["main"]["temp"]
-    # Snow volume in last 3h (mm), convert to cm. Field may be absent.
-    snow_mm = data.get("snow", {}).get("3h", 0.0)
-    snow_cm = snow_mm / 10.0
-    description = data["weather"][0]["description"] if data.get("weather") else ""
+    current = data.get("current", {})
+    temp_c = current.get("temp_c", 0.0)
+    # WeatherAPI returns snowfall in cm.
+    snow_cm = current.get("snow_cm", 0.0)
+    condition = current.get("condition", {}) or {}
+    description = condition.get("text", "")
 
     is_severe = snow_cm >= settings.SNOW_THRESHOLD_CM or temp_c <= settings.TEMP_THRESHOLD_C
 
@@ -49,18 +52,18 @@ async def fetch_current_weather() -> WeatherCondition:
 
 
 async def check_weather_alerts() -> list[dict]:
-    """Fetch active weather alerts from the One Call API endpoint."""
-    url = f"{settings.WEATHER_API_BASE_URL}/onecall"
+    """Fetch active weather alerts from WeatherAPI."""
+    url = f"{settings.WEATHER_API_BASE_URL}/forecast.json"
     params = {
-        "lat": settings.WEATHER_LOCATION_LAT,
-        "lon": settings.WEATHER_LOCATION_LON,
-        "appid": settings.WEATHER_API_KEY,
-        "exclude": "minutely,hourly,daily",
-        "units": "metric",
+        "key": settings.WEATHER_API_KEY,
+        "q": _build_location_query(),
+        "days": 1,
+        "alerts": "yes",
     }
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
         data = resp.json()
 
-    return data.get("alerts", [])
+    alerts = data.get("alerts", {}) or {}
+    return alerts.get("alert", [])

@@ -8,7 +8,7 @@
 - **Database:** PostgreSQL
 - **Voice/NLP:** Vapi AI API
 - **SMS:** Twilio API
-- **Weather:** OpenWeatherMap API
+- **Weather:** WeatherAPI.com
 
 ## Prerequisites
 
@@ -133,7 +133,8 @@ The app starts without API keys. Add them to `backend/.env` when ready:
 | `TWILIO_ACCOUNT_SID` | Twilio (SMS) | https://twilio.com/console |
 | `TWILIO_AUTH_TOKEN` | Twilio (SMS) | https://twilio.com/console |
 | `TWILIO_PHONE_NUMBER` | Twilio (SMS) | https://twilio.com/console |
-| `WEATHER_API_KEY` | OpenWeatherMap | https://openweathermap.org/api |
+| `WEATHER_API_KEY` | WeatherAPI.com | https://www.weatherapi.com/ |
+| `WEATHER_API_BASE_URL` | WeatherAPI.com | http://api.weatherapi.com/v1 |
 
 ## Project Structure
 

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Weather API
     WEATHER_API_KEY: str = ""
-    WEATHER_API_BASE_URL: str = "https://api.openweathermap.org/data/2.5"
+    WEATHER_API_BASE_URL: str = "http://api.weatherapi.com/v1"
     WEATHER_LOCATION_LAT: float = 51.0447  # Default: Calgary area
     WEATHER_LOCATION_LON: float = -114.0719
 
