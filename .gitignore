@@ -1,21 +1,59 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.egg
 *.egg-info/
+.eggs/
+*.whl
 .venv/
 venv/
+env/
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Node
 node_modules/
 dist/
+build/
+*.tsbuildinfo
 
 # Environment
 .env
-.env.local
+.env.*
+!.env.example
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Testing / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Docker
+*.log
+
+# Database
+*.sqlite3
+*.db
+
+# Byte-compiled
+*.pyc
+
+# Distribution
+*.tar.gz
+*.zip
+
+# Claude
+CLAUDE.md
+
