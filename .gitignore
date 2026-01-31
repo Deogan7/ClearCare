@@ -22,6 +22,8 @@ build/
 .env
 .env.*
 !.env.example
+.env.local
+backend/.env
 
 # IDE
 .vscode/
