@@ -1,4 +1,4 @@
-# RidgeCare Link
+# ClearCare Link
 
 
 ## Tech Stack

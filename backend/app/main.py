@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,12 +11,23 @@ from app.db.session import engine
 from app.models import base
 from app.tasks import start_scheduler, stop_scheduler
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create tables, start background scheduler on startup, stop on shutdown."""
-    async with engine.begin() as conn:
-        await conn.run_sync(base.Base.metadata.create_all)
+    retries = 10
+    for attempt in range(1, retries + 1):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(base.Base.metadata.create_all)
+            break
+        except OSError:
+            if attempt == retries:
+                raise
+            logger.warning("DB not ready, retrying (%d/%d)...", attempt, retries)
+            await asyncio.sleep(2)
     start_scheduler()
     yield
     stop_scheduler()
