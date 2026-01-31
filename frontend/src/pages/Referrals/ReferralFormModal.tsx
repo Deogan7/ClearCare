@@ -75,10 +75,10 @@ export default function ReferralFormModal({
 
   return (
     <Modal open={open} title="Create Referral" onClose={onClose}>
-      <form onSubmit={handleSubmit}>
-        {error ? <div>{error}</div> : null}
-        <label>
-          Patient
+      <form onSubmit={handleSubmit} className="form-body">
+        {error ? <div className="form-error">{error}</div> : null}
+        <label className="form-field">
+          <span>Patient *</span>
           <select
             value={patientId}
             onChange={(event) => setPatientId(event.target.value)}
@@ -91,51 +91,56 @@ export default function ReferralFormModal({
             ))}
           </select>
         </label>
-        <label>
-          Description
-          <textarea
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </label>
-        <label>
-          Referred to
+        <label className="form-field">
+          <span>Referred to *</span>
           <input
             type="text"
+            placeholder="e.g. Calgary Foothills Cardiology"
             value={referredTo}
             onChange={(event) => setReferredTo(event.target.value)}
           />
         </label>
-        <label>
-          Action date
-          <input
-            type="date"
-            value={actionDate}
-            onChange={(event) => setActionDate(event.target.value)}
+        <label className="form-field">
+          <span>Description</span>
+          <textarea
+            placeholder="Reason for referral..."
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
           />
         </label>
-        <label>
-          Scheduled date
-          <input
-            type="date"
-            value={scheduledDate}
-            onChange={(event) => setScheduledDate(event.target.value)}
-          />
-        </label>
-        <label>
-          Created by
+        <div className="form-row">
+          <label className="form-field">
+            <span>Action date *</span>
+            <input
+              type="date"
+              value={actionDate}
+              onChange={(event) => setActionDate(event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            <span>Scheduled date</span>
+            <input
+              type="date"
+              value={scheduledDate}
+              onChange={(event) => setScheduledDate(event.target.value)}
+            />
+          </label>
+        </div>
+        <label className="form-field">
+          <span>Created by *</span>
           <input
             type="text"
+            placeholder="e.g. Nurse Adams"
             value={createdBy}
             onChange={(event) => setCreatedBy(event.target.value)}
           />
         </label>
-        <div>
-          <Button type="submit" disabled={!isValid || submitting}>
-            {submitting ? "Creating..." : "Create Referral"}
-          </Button>
-          <Button type="button" onClick={onClose}>
+        <div className="form-actions">
+          <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={!isValid || submitting}>
+            {submitting ? "Creating..." : "Create Referral"}
           </Button>
         </div>
       </form>

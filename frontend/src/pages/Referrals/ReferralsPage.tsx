@@ -125,18 +125,7 @@ export default function ReferralsPage() {
           <div>No referrals found.</div>
         ) : null}
         {!loading && !error && filteredReferrals.length > 0 ? (
-          <Table>
-            <thead>
-              <tr>
-                <th>Ticket ID</th>
-                <th>Patient name</th>
-                <th>Status</th>
-                <th>Referred to</th>
-                <th>Scheduled date</th>
-                <th>Action date</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table headers={["Ticket ID", "Patient name", "Status", "Referred to", "Scheduled date", "Action date"]}>
               {filteredReferrals.map((referral) => (
                 <tr key={referral.id}>
                   <td>
@@ -156,7 +145,6 @@ export default function ReferralsPage() {
                   <td>{formatDate(referral.action_date)}</td>
                 </tr>
               ))}
-            </tbody>
           </Table>
         ) : null}
       </div>

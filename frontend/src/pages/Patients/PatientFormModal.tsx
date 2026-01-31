@@ -110,69 +110,78 @@ export default function PatientFormModal({
       title={patient ? "Edit Patient" : "Create Patient"}
       onClose={onClose}
     >
-      <form onSubmit={handleSubmit}>
-        {error ? <div>{error}</div> : null}
-        <label>
-          First name
+      <form onSubmit={handleSubmit} className="form-body">
+        {error ? <div className="form-error">{error}</div> : null}
+        <div className="form-row">
+          <label className="form-field">
+            <span>First name *</span>
+            <input
+              type="text"
+              placeholder="e.g. Margaret"
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            <span>Last name *</span>
+            <input
+              type="text"
+              placeholder="e.g. Blackwood"
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="form-row">
+          <label className="form-field">
+            <span>Phone *</span>
+            <input
+              type="tel"
+              placeholder="+1 403 555 1001"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            <span>Date of birth</span>
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={(event) => setDateOfBirth(event.target.value)}
+            />
+          </label>
+        </div>
+        <label className="form-field">
+          <span>Address</span>
           <input
             type="text"
-            value={firstName}
-            onChange={(event) => setFirstName(event.target.value)}
-          />
-        </label>
-        <label>
-          Last name
-          <input
-            type="text"
-            value={lastName}
-            onChange={(event) => setLastName(event.target.value)}
-          />
-        </label>
-        <label>
-          Phone
-          <input
-            type="tel"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-          />
-        </label>
-        <label>
-          Date of birth
-          <input
-            type="date"
-            value={dateOfBirth}
-            onChange={(event) => setDateOfBirth(event.target.value)}
-          />
-        </label>
-        <label>
-          Address
-          <input
-            type="text"
+            placeholder="12 Pine Crescent, Clearwater Ridge"
             value={address}
             onChange={(event) => setAddress(event.target.value)}
           />
         </label>
-        <label>
-          High risk
+        <label className="form-checkbox">
           <input
             type="checkbox"
             checked={isHighRisk}
             onChange={(event) => setIsHighRisk(event.target.checked)}
           />
+          <span>High-risk patient</span>
         </label>
-        <label>
-          Notes
+        <label className="form-field">
+          <span>Notes</span>
           <textarea
+            placeholder="Any relevant medical history or notes..."
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
           />
         </label>
-        <div>
-          <Button type="submit" disabled={!isValid || submitting}>
-            {submitting ? "Saving..." : "Save"}
-          </Button>
-          <Button type="button" onClick={onClose}>
+        <div className="form-actions">
+          <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
+          </Button>
+          <Button type="submit" variant="primary" disabled={!isValid || submitting}>
+            {submitting ? "Saving..." : "Save"}
           </Button>
         </div>
       </form>

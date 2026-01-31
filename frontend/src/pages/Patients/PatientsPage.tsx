@@ -69,16 +69,7 @@ export default function PatientsPage() {
           <div>No patients found.</div>
         ) : null}
         {!loading && !error && patients.length > 0 ? (
-          <Table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Phone</th>
-                <th>High-risk flag</th>
-                <th>Active referrals</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table headers={["Name", "Phone", "High-risk flag", "Active referrals"]}>
               {patients.map((patient) => (
                 <tr key={patient.id}>
                   <td>
@@ -94,7 +85,6 @@ export default function PatientsPage() {
                   <td>{activeReferralCounts.get(patient.id) ?? 0}</td>
                 </tr>
               ))}
-            </tbody>
           </Table>
         ) : null}
       </div>
