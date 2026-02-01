@@ -106,6 +106,8 @@ export default function DashboardPage() {
   const [lastWeatherCheck, setLastWeatherCheck] = useState<Date | null>(null);
   const [isStormSevere, setIsStormSevere] = useState(false);
   const [stormStatus, setStormStatus] = useState<StormStatusResponse | null>(null);
+  const [overdueOpen, setOverdueOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -137,7 +139,7 @@ export default function DashboardPage() {
       }
 
       if (stormResult.status === "fulfilled") {
-        const stormData = stormResult.value ?? null;
+        const stormData = stormResult.value?.data ?? null;
         const severe = Boolean(
           stormData?.is_severe ?? stormData?.isSevere ?? stormData?.severe
         );
@@ -339,10 +341,10 @@ export default function DashboardPage() {
       };
     }
     const thresholds = stormStatus.thresholds
-      ? `${stormStatus.thresholds.temp_c}°C / ${stormStatus.thresholds.snow_cm}cm`
+      ? `${stormStatus.thresholds.temp_c}C / ${stormStatus.thresholds.snow_cm}cm`
       : "-- / --";
     return {
-      temp: `${stormStatus.temperature_c}°C`,
+      temp: `${stormStatus.temperature_c}C`,
       snow: `${stormStatus.snow_cm}cm`,
       description: stormStatus.description || "No description available.",
       alerts: Array.isArray(stormStatus.alerts) ? stormStatus.alerts.length : 0,
@@ -399,7 +401,7 @@ export default function DashboardPage() {
             className="button ghost"
             style={{ padding: "4px 8px" }}
           >
-            View all ?
+            View all &rarr;
           </button>
         </div>
 
@@ -426,7 +428,7 @@ export default function DashboardPage() {
             className="button ghost"
             style={{ padding: "4px 8px" }}
           >
-            {alertState === "green" ? "Run check ?" : "View overdue ?"}
+            {alertState === "green" ? "Run check \u2192" : "View overdue \u2192"}
           </button>
         </div>
 
@@ -512,7 +514,7 @@ export default function DashboardPage() {
               ))
             )}
           </div>
-        </div>
+        </Card>
       </div>
       <SideDrawer
         open={overdueOpen}
@@ -559,7 +561,7 @@ export default function DashboardPage() {
                   <div style={{ fontWeight: 600 }}>{patientName}</div>
                   <div className="page-subtitle">Referral {referral.ticket_id}</div>
                   <div className="page-subtitle">
-                    {reason} � {daysOverdue}d overdue
+                    {reason} - {daysOverdue}d overdue
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="button secondary" style={{ padding: "6px 10px" }}>
@@ -578,7 +580,7 @@ export default function DashboardPage() {
             style={{ alignSelf: "flex-start" }}
             onClick={() => navigate("/referrals")}
           >
-            Open full referrals view ?
+            Open full referrals view &rarr;
           </button>
         </div>
       </SideDrawer>
@@ -609,7 +611,7 @@ export default function DashboardPage() {
                 <div>
                   <div style={{ fontWeight: 600 }}>{task.taskType}</div>
                   <div className="page-subtitle">
-                    {task.context} � {task.label}
+                    {task.context} - {task.label}
                   </div>
                 </div>
                 <span className="badge warn">{task.dueLabel ?? "Today"}</span>
@@ -621,7 +623,7 @@ export default function DashboardPage() {
             style={{ alignSelf: "flex-start" }}
             onClick={() => navigate("/referrals")}
           >
-            View all referrals ?
+            View all referrals &rarr;
           </button>
         </div>
       </SideDrawer>
