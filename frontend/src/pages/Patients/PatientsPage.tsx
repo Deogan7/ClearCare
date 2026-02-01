@@ -10,6 +10,8 @@ import type { Referral } from "../../types/referral";
 import PatientFormModal from "./PatientFormModal";
 import DeletePatientModal from "./DeletePatientModal";
 
+type SortDir = "asc" | "desc";
+
 export default function PatientsPage() {
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -18,6 +20,8 @@ export default function PatientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Patient | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -46,7 +50,7 @@ export default function PatientsPage() {
       return counts;
     }
     referrals.forEach((referral) => {
-      if (referral.status !== "resolved") {
+      if (referral.status !== "closed") {
         counts.set(
           referral.patient_id,
           (counts.get(referral.patient_id) ?? 0) + 1
@@ -56,23 +60,61 @@ export default function PatientsPage() {
     return counts;
   }, [referrals]);
 
+  const displayedPatients = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    let list = Array.isArray(patients) ? [...patients] : [];
+    if (term) {
+      list = list.filter((p) =>
+        `${p.first_name} ${p.last_name}`.toLowerCase().includes(term)
+      );
+    }
+    list.sort((a, b) => {
+      const cmp = `${a.last_name} ${a.first_name}`.localeCompare(
+        `${b.last_name} ${b.first_name}`
+      );
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [patients, search, sortDir]);
+
   return (
     <AppShell>
       <div>
         <h1>Patients</h1>
-        <div>
+        <div className="filter-bar" style={{ marginBottom: 4 }}>
+          <div className="filter-group">
+            <span className="filter-label">Search</span>
+            <input
+              className="filter-search"
+              type="text"
+              placeholder="Search by name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="filter-group">
+            <span className="filter-label">Sort by name</span>
+            <button
+              type="button"
+              className="sort-toggle"
+              onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+            >
+              {sortDir === "asc" ? "A → Z" : "Z → A"}
+              <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span>
+            </button>
+          </div>
           <Button type="button" onClick={() => setIsModalOpen(true)}>
             New Patient
           </Button>
         </div>
         {loading ? <div>Loading patients...</div> : null}
         {error ? <div>{error}</div> : null}
-        {!loading && !error && patients.length === 0 ? (
-          <div>No patients found.</div>
+        {!loading && !error && displayedPatients.length === 0 ? (
+          <div>{search ? "No patients match your search." : "No patients found."}</div>
         ) : null}
-        {!loading && !error && patients.length > 0 ? (
+        {!loading && !error && displayedPatients.length > 0 ? (
           <Table headers={["Name", "Phone", "High-risk flag", "Active referrals", ""]}>
-              {patients.map((patient) => (
+              {displayedPatients.map((patient) => (
                 <tr key={patient.id}>
                   <td>
                     <Button

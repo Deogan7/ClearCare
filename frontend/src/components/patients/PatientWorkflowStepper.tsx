@@ -9,6 +9,7 @@ type Step = {
   key: string;
   label: string;
   caption: string;
+  icon: string;
 };
 
 const STEPS: Step[] = [
@@ -16,36 +17,43 @@ const STEPS: Step[] = [
     key: "referral_created",
     label: "Referral created",
     caption: "Initial intake recorded",
+    icon: "📋",
   },
   {
     key: "sent_to_specialist",
     label: "Sent to specialist",
     caption: "Awaiting confirmation",
+    icon: "📨",
   },
   {
     key: "referral_received",
     label: "Referral received",
-    caption: "Specialist confirmed receipt",
+    caption: "Specialist confirmed",
+    icon: "✅",
   },
   {
     key: "appointment_scheduled",
     label: "Appointment scheduled",
     caption: "Visit date confirmed",
+    icon: "📅",
   },
   {
     key: "patient_notified",
     label: "Patient notified",
     caption: "Patient aware of visit",
+    icon: "📞",
   },
   {
     key: "completed",
     label: "Visit completed",
     caption: "Care delivered",
+    icon: "🏥",
   },
   {
     key: "closed",
     label: "Case closed",
     caption: "Ticket resolved",
+    icon: "🔒",
   },
 ];
 
@@ -72,61 +80,50 @@ export default function PatientWorkflowStepper({ referral }: PatientWorkflowStep
   }
 
   const currentIndex = STATUS_TO_INDEX[referral.status];
+  const isMissed = referral.status === "missed";
+  const isReschedule = referral.status === "reschedule_requested";
 
   return (
     <Card
       title="Care workflow"
       action={
-        referral.status === "missed" ? (
-          <span className="badge warn">missed appointment</span>
+        isMissed ? (
+          <span className="badge danger">Missed appointment</span>
+        ) : isReschedule ? (
+          <span className="badge warn">Reschedule requested</span>
         ) : null
       }
     >
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+      <div className="workflow-stepper">
         {STEPS.map((step, index) => {
           const isComplete = index < currentIndex;
-          const isCurrent = index == currentIndex;
-          const background = isComplete
-            ? "var(--ok)"
+          const isCurrent = index === currentIndex;
+          const stepClass = isComplete
+            ? "step-complete"
             : isCurrent
-            ? referral.status === "missed"
-              ? "var(--warn)"
-              : "var(--info)"
-            : "var(--surface-2)";
-          const color = isComplete || isCurrent ? "#ffffff" : "var(--muted)";
-          const borderColor = isComplete || isCurrent ? background : "var(--border)";
+            ? isMissed
+              ? "step-missed"
+              : "step-current"
+            : "step-pending";
 
           return (
-            <div key={step.key} style={{ display: "flex", gap: 10, minWidth: 180 }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: "50%",
-                  background,
-                  color,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: `1px solid ${borderColor}`,
-                  fontWeight: 600,
-                  fontSize: 13,
-                  flexShrink: 0,
-                }}
-              >
-                {index + 1}
+            <div key={step.key} className={`workflow-step ${stepClass}`}>
+              <div className="step-node">
+                {isComplete ? "✓" : step.icon}
               </div>
-              <div>
-                <div style={{ fontWeight: 600 }}>{step.label}</div>
-                <div className="page-subtitle">{step.caption}</div>
-              </div>
+              <div className="step-label">{step.label}</div>
+              <div className="step-caption">{step.caption}</div>
             </div>
           );
         })}
       </div>
-      {referral.status === "missed" ? (
-        <div className="page-subtitle" style={{ marginTop: 12 }}>
-          Follow-up is required to reschedule this appointment.
+      {isMissed ? (
+        <div className="workflow-alert alert-danger">
+          ⚠ Follow-up is required to reschedule this appointment.
+        </div>
+      ) : isReschedule ? (
+        <div className="workflow-alert alert-warn">
+          ↻ Patient has requested a reschedule — awaiting new appointment date.
         </div>
       ) : null}
     </Card>

@@ -73,6 +73,7 @@ export default function ReferralsPage() {
   const [statusFilter, setStatusFilter] = useState<ReferralStatus | "all">(
     "all"
   );
+  const [patientFilter, setPatientFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -124,15 +125,27 @@ export default function ReferralsPage() {
     return map;
   }, [patients]);
 
+  const sortedPatientOptions = useMemo(() => {
+    if (!Array.isArray(patients)) return [];
+    return [...patients]
+      .sort((a, b) =>
+        `${a.last_name} ${a.first_name}`.localeCompare(
+          `${b.last_name} ${b.first_name}`
+        )
+      )
+      .map((p) => ({ value: p.id, label: `${p.last_name}, ${p.first_name}` }));
+  }, [patients]);
+
   const filteredReferrals = useMemo(() => {
     if (!Array.isArray(referrals)) {
       return [];
     }
-    if (statusFilter === "all") {
-      return referrals;
-    }
-    return referrals.filter((referral) => referral.status === statusFilter);
-  }, [referrals, statusFilter]);
+    return referrals.filter((referral) => {
+      if (statusFilter !== "all" && referral.status !== statusFilter) return false;
+      if (patientFilter !== "all" && referral.patient_id !== patientFilter) return false;
+      return true;
+    });
+  }, [referrals, statusFilter, patientFilter]);
 
   const formatDate = (value: string | null) => {
     if (!value) {
@@ -227,11 +240,12 @@ export default function ReferralsPage() {
     <AppShell>
       <div>
         <h1>Referrals</h1>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <label>
-              Status
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div className="filter-bar">
+            <div className="filter-group">
+              <span className="filter-label">Status</span>
               <select
+                className="filter-select"
                 value={statusFilter}
                 onChange={(event) =>
                   setStatusFilter(event.target.value as ReferralStatus | "all")
@@ -243,7 +257,22 @@ export default function ReferralsPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
+            <div className="filter-group">
+              <span className="filter-label">Patient</span>
+              <select
+                className="filter-select"
+                value={patientFilter}
+                onChange={(event) => setPatientFilter(event.target.value)}
+              >
+                <option value="all">All patients</option>
+                {sortedPatientOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Button type="button" onClick={() => setIsModalOpen(true)}>
               New Referral
             </Button>
