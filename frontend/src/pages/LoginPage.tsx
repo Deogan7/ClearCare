@@ -30,7 +30,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card card">
         <div className="login-header">
-          <h1>RidgeCare Link</h1>
+          <h1>ClearCare</h1>
           <p>Nurse Console</p>
         </div>
         <form onSubmit={handleSubmit} className="form-body">

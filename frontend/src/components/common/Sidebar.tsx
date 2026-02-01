@@ -12,7 +12,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="sidebar-title">RidgeCare Link</div>
+        <div className="sidebar-title">ClearCare</div>
         <div className="sidebar-subtitle">Care coordination console</div>
       </div>
       <nav className="nav-list">

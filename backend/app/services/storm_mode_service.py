@@ -3,11 +3,12 @@
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, desc
+from sqlalchemy import or_, select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
+from app.core.config import settings
 from app.models.referral import Referral, ReferralStatus, AppointmentType
 from app.models.storm_mode import (
     StormModeEvent, StormConversionLog, StormDriverNotification,
@@ -134,18 +135,39 @@ async def _get_eligible_referrals(
     now = datetime.utcnow()
     window_end = now + timedelta(hours=window_hours)
 
-    result = await db.execute(
-        select(Referral).where(
-            Referral.scheduled_date.isnot(None),
-            Referral.scheduled_date >= now,
-            Referral.scheduled_date <= window_end,
-            Referral.appointment_type == AppointmentType.IN_PERSON,
-            Referral.status.in_([
-                ReferralStatus.APPOINTMENT_SCHEDULED,
-                ReferralStatus.PATIENT_NOTIFIED,
-            ]),
+    if settings.DEMO_MODE:
+        # Demo: include all referrals with a scheduled date that aren't already virtual or closed
+        result = await db.execute(
+            select(Referral)
+            .options(joinedload(Referral.patient))
+            .where(
+                Referral.scheduled_date.isnot(None),
+                or_(
+                    Referral.appointment_type.is_(None),
+                    Referral.appointment_type != AppointmentType.VIRTUAL,
+                ),
+                Referral.status.notin_([
+                    ReferralStatus.COMPLETED,
+                    ReferralStatus.CLOSED,
+                    ReferralStatus.MISSED,
+                ]),
+            )
         )
-    )
+    else:
+        result = await db.execute(
+            select(Referral)
+            .options(joinedload(Referral.patient))
+            .where(
+                Referral.scheduled_date.isnot(None),
+                Referral.scheduled_date >= now,
+                Referral.scheduled_date <= window_end,
+                Referral.appointment_type == AppointmentType.IN_PERSON,
+                Referral.status.in_([
+                    ReferralStatus.APPOINTMENT_SCHEDULED,
+                    ReferralStatus.PATIENT_NOTIFIED,
+                ]),
+            )
+        )
     return list(result.scalars().all())
 
 
@@ -154,15 +176,6 @@ async def _convert_eligible_appointments(
 ) -> int:
     """Convert all eligible in-person appointments to virtual and log each one."""
     referrals = await _get_eligible_referrals(db, event.window_hours)
-
-    # Eagerly load patients for driver notifications
-    for referral in referrals:
-        if not referral.patient:
-            await db.execute(
-                select(Referral)
-                .where(Referral.id == referral.id)
-                .options(selectinload(Referral.patient))
-            )
 
     for referral in referrals:
         prev_type = referral.appointment_type.value if referral.appointment_type else "in_person"

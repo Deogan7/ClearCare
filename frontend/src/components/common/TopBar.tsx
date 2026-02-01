@@ -18,7 +18,7 @@ export default function TopBar() {
   const { user, logout } = useAuth();
   const { isActive } = useStormMode();
   const [stormModalOpen, setStormModalOpen] = useState(false);
-  const title = titles[location.pathname] ?? "RidgeCare";
+  const title = titles[location.pathname] ?? "ClearCare";
 
   const handleLogout = () => {
     logout();

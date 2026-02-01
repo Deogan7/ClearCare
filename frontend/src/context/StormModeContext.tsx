@@ -42,6 +42,8 @@ export function StormModeProvider({ children }: { children: ReactNode }) {
     useState<DriverNotificationSummary | null>(null);
 
   const refresh = useCallback(async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
     try {
       const data = await getStormModeStatus();
       setStatus(data);

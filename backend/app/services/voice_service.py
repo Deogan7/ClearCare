@@ -398,12 +398,17 @@ async def initiate_reschedule_call(
 def _build_storm_wellness_check_prompt(patient_name: str) -> str:
     return f"""{_SARAH_PERSONALITY}
 
-You're calling {patient_name} because there's a big storm hitting the area. You're genuinely \
+You're calling {patient_name} because there's a severe storm hitting the area. You're genuinely \
 worried about them and want to make sure they're okay. Start by saying hi, using their name, \
-and asking how they're doing. Wait for them to respond.
+and letting them know you're calling from ClearCare at the clinic. Wait for them to respond.
 
-Then naturally bring it up: "So I'm sure you've noticed the weather out there — it's pretty \
-rough. I just wanted to check in on you and make sure you're doing alright."
+Then let them know about their appointment: "So {patient_name}, I'm sure you've seen how bad \
+the weather is out there. I wanted to let you know that we've gone ahead and switched your \
+upcoming appointment to a virtual visit — so you don't have to worry about going out in this \
+storm. We'll send you the details for that, but you'll be able to do it right from home."
+
+Wait for their response, then transition into the wellness check: "But more importantly, I \
+just wanted to check in on you and make sure you're doing alright with everything going on."
 
 After they respond, you need to find out three things, but do it naturally — like a caring \
 friend, not a checklist:

@@ -54,7 +54,7 @@ async def activate_storm_mode(
         event_id_str = result["event_id"]
 
         async def _fire_wellness_checks():
-            delay = 5 if settings.DEMO_MODE else 3
+            delay = 1 if settings.DEMO_MODE else 3
             await asyncio.sleep(delay)  # small delay so the activation response returns first
             try:
                 async with async_session() as wellness_db:
