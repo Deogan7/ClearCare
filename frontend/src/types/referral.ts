@@ -1,9 +1,14 @@
 export type ReferralStatus =
-  | "pending_confirmation"
-  | "scheduled"
-  | "attended"
-  | "resolved"
-  | "missed";
+  | "sent_to_specialist"
+  | "resent_to_specialist"
+  | "referral_received"
+  | "appointment_scheduling"
+  | "appointment_scheduled"
+  | "patient_notified"
+  | "completed"
+  | "missed"
+  | "reschedule_requested"
+  | "closed";
 
 export interface Referral {
   id: string;
