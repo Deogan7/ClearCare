@@ -742,6 +742,244 @@
   margin: 0;
 }
 
+/* ── Appointments ── */
+
+.appt-stats-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.appt-stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  min-width: 90px;
+}
+
+.appt-stat-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.appt-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.appt-stat-critical .appt-stat-number { color: var(--danger); }
+.appt-stat-noshow .appt-stat-number { color: var(--warn); }
+
+.appt-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.appt-view-btn {
+  padding: 8px 14px;
+  border: none;
+  background: var(--surface);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.appt-view-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.appt-view-btn.active {
+  background: var(--text);
+  color: white;
+}
+
+.appt-view-btn:hover:not(.active) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.appt-risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.appt-risk-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Timeline */
+
+.appt-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.appt-day-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.appt-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.appt-day-label {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.appt-day-label.today {
+  color: var(--info);
+}
+
+.appt-day-label.past {
+  color: var(--muted);
+}
+
+.appt-day-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.appt-day-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.appt-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  align-items: flex-start;
+}
+
+.appt-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.appt-card.dimmed {
+  opacity: 0.55;
+}
+
+.appt-card-left {
+  flex-shrink: 0;
+}
+
+.appt-card-time-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  border-left: 3px solid var(--border);
+  padding-left: 10px;
+  min-width: 56px;
+}
+
+.appt-card-time {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.appt-card-duration {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.appt-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.appt-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.appt-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.appt-card-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.appt-card-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+  max-width: 480px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appt-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.appt-action-btn {
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+}
+
 @keyframes shimmer {
   0% { background-position: 0% 0%; }
   100% { background-position: 200% 0%; }

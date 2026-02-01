@@ -10,19 +10,6 @@ import { getPatient } from "../../services/patientService";
 import type { Patient } from "../../types/patient";
 import type { Referral, ReferralStatus } from "../../types/referral";
 
-const STATUS_ORDER: ReferralStatus[] = [
-  "sent_to_specialist",
-  "resent_to_specialist",
-  "referral_received",
-  "appointment_scheduling",
-  "appointment_scheduled",
-  "patient_notified",
-  "completed",
-  "missed",
-  "reschedule_requested",
-  "closed",
-];
-
 const STATUS_LABELS: Record<ReferralStatus, string> = {
   sent_to_specialist: "Sent to Specialist",
   resent_to_specialist: "Resent to Specialist",

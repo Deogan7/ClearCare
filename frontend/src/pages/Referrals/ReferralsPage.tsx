@@ -114,17 +114,6 @@ export default function ReferralsPage() {
     return map;
   }, [patients]);
 
-  const patientHighRiskById = useMemo(() => {
-    const map = new Map<string, boolean>();
-    if (!Array.isArray(patients)) {
-      return map;
-    }
-    patients.forEach((patient) => {
-      map.set(patient.id, Boolean(patient.is_high_risk));
-    });
-    return map;
-  }, [patients]);
-
   const sortedPatientOptions = useMemo(() => {
     if (!Array.isArray(patients)) return [];
     return [...patients]

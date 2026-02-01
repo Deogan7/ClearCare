@@ -8,9 +8,11 @@ import StatCard from "../components/common/StatCard";
 import SideDrawer from "../components/common/SideDrawer";
 import StormModeModal from "../components/storm/StormModeModal";
 import { useStormMode } from "../context/StormModeContext";
+import { getAppointments } from "../services/appointmentService";
 import { getPatients } from "../services/patientService";
 import { getReferrals } from "../services/referralService";
 import { getStormStatus } from "../services/weatherService";
+import type { Appointment } from "../types/appointment";
 import type { Patient } from "../types/patient";
 import type { Referral } from "../types/referral";
 import type { StormStatusResponse } from "../types/weather";
@@ -66,7 +68,7 @@ function parseDate(value?: string | null) {
 }
 
 function isActiveReferral(status: Referral["status"]) {
-  return status !== "resolved" && status !== "missed";
+  return status !== "closed" && status !== "missed";
 }
 
 function ClickableStatCard({
@@ -102,9 +104,14 @@ function ClickableStatCard({
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { isActive: stormModeActive, status: stormModeStatus } = useStormMode();
+  const {
+    isActive: stormModeActive,
+    status: stormModeStatus,
+    wellnessSummary,
+  } = useStormMode();
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [lastWeatherCheck, setLastWeatherCheck] = useState<Date | null>(null);
   const [isStormSevere, setIsStormSevere] = useState(false);
@@ -115,11 +122,12 @@ export default function DashboardPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [referralsResult, patientsResult, stormResult] =
+      const [referralsResult, patientsResult, stormResult, appointmentsResult] =
         await Promise.allSettled([
           getReferrals(),
           getPatients(),
           getStormStatus(),
+          getAppointments(),
         ]);
 
       if (referralsResult.status === "fulfilled") {
@@ -150,6 +158,16 @@ export default function DashboardPage() {
         setLastWeatherCheck(new Date());
       } else {
         setStormStatus(null);
+      }
+
+      if (appointmentsResult.status === "fulfilled") {
+        setAppointments(
+          Array.isArray(appointmentsResult.value.data)
+            ? appointmentsResult.value.data
+            : []
+        );
+      } else {
+        setAppointments([]);
       }
 
       setLastUpdated(new Date());
@@ -201,6 +219,23 @@ export default function DashboardPage() {
     return referrals.filter((referral) => isActiveReferral(referral.status));
   }, [referrals]);
 
+  const todaysAppointments = useMemo(() => {
+    return appointments.filter((a) => {
+      const d = parseDate(a.appointment_date);
+      if (!d) return false;
+      return toDateOnly(d).getTime() === today.getTime();
+    });
+  }, [appointments, today]);
+
+  const criticalAppointments = useMemo(() => {
+    return appointments.filter(
+      (a) =>
+        a.risk_level === "critical" &&
+        a.status !== "completed" &&
+        a.status !== "cancelled"
+    );
+  }, [appointments]);
+
   const priorities = useMemo<PriorityItem[]>(() => {
     const items: PriorityItem[] = [];
     if (overdueReferrals.length > 0) {
@@ -230,8 +265,17 @@ export default function DashboardPage() {
         dueLabel: "Today",
       });
     }
+    if (criticalAppointments.length > 0) {
+      items.push({
+        id: "critical-appts",
+        label: `${criticalAppointments.length} critical appointment(s) need attention`,
+        taskType: "Review",
+        context: "Critical risk appointments",
+        dueLabel: "Urgent",
+      });
+    }
     return items;
-  }, [highRiskPatients.length, overdueReferrals.length, scheduledToday.length]);
+  }, [criticalAppointments.length, highRiskPatients.length, overdueReferrals.length, scheduledToday.length]);
 
   const alertState = useMemo(() => {
     if (isStormSevere || overdueReferrals.length > 1) {
@@ -376,7 +420,10 @@ export default function DashboardPage() {
               <div className="storm-banner-info">
                 <div className="storm-banner-title">Storm Mode Active</div>
                 <div className="storm-banner-subtitle">
-                  {stormModeStatus?.converted_count ?? 0} appointment(s) converted to virtual care
+                  {stormModeStatus?.converted_count ?? 0} converted
+                  {wellnessSummary
+                    ? ` | ${wellnessSummary.completed}/${wellnessSummary.total} wellness checks`
+                    : ""}
                   {stormModeStatus?.trigger === "auto" ? " (auto-triggered)" : ""}
                 </div>
               </div>
@@ -385,6 +432,72 @@ export default function DashboardPage() {
               Manage
             </Button>
           </div>
+        )}
+
+        {/* Storm Wellness Triage Panel */}
+        {stormModeActive && wellnessSummary && wellnessSummary.total > 0 && (
+          <Card
+            title="Storm Wellness Triage"
+            action={
+              <Button variant="ghost" onClick={() => setStormModalOpen(true)}>
+                View all
+              </Button>
+            }
+          >
+            <div className="storm-triage-grid">
+              <div className="storm-triage-stat">
+                <div className="stat-number">{wellnessSummary.total}</div>
+                <div className="stat-label">Patients Called</div>
+              </div>
+              <div className="storm-triage-stat">
+                <div className="stat-number">{wellnessSummary.completed}</div>
+                <div className="stat-label">Completed</div>
+              </div>
+              <div className="storm-triage-stat">
+                <div className="stat-number text-danger">
+                  {wellnessSummary.alerts.length}
+                </div>
+                <div className="stat-label">Need Attention</div>
+              </div>
+              <div className="storm-triage-stat">
+                <div className="stat-number">
+                  {wellnessSummary.checks.filter(
+                    (c) => c.medication_stocked === false
+                  ).length}
+                </div>
+                <div className="stat-label">Low on Meds</div>
+              </div>
+            </div>
+
+            {wellnessSummary.alerts.length > 0 && (
+              <div className="storm-triage-alerts">
+                {wellnessSummary.alerts.slice(0, 3).map((alert) => (
+                  <div key={alert.id} className="storm-triage-alert-row">
+                    <span className="storm-triage-alert-name">
+                      {alert.patient_name}
+                    </span>
+                    <div className="storm-triage-alert-badges">
+                      {alert.has_symptoms && (
+                        <span className="badge danger">Symptoms</span>
+                      )}
+                      {alert.medication_stocked === false && (
+                        <span className="badge warn">Low Meds</span>
+                      )}
+                      {alert.needs_assistance && (
+                        <span className="badge info">Needs Help</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {wellnessSummary.calling > 0 && (
+              <div className="page-subtitle" style={{ marginTop: 8 }}>
+                {wellnessSummary.calling} call(s) still in progress...
+              </div>
+            )}
+          </Card>
         )}
 
         {/* Compact horizontal action strip for priorities */}
@@ -477,6 +590,12 @@ export default function DashboardPage() {
             value={`${highRiskPatients.length}`}
             helper="Storm contact list"
             onClick={() => navigate("/patients?highRisk=true")}
+          />
+          <ClickableStatCard
+            label="Today's appts"
+            value={`${todaysAppointments.length}`}
+            helper={todaysAppointments.length > 0 ? "View schedule" : "No appointments today"}
+            onClick={() => navigate("/appointments")}
           />
           <ClickableStatCard
             label="Weather alerts"
