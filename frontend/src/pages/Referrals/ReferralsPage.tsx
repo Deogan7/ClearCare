@@ -151,31 +151,40 @@ export default function ReferralsPage() {
   };
 
   const sortedReferrals = useMemo(() => {
-    return [...filteredReferrals].sort((a, b) => {
-      const rankA = priorityRank[getPriority(a)];
-      const rankB = priorityRank[getPriority(b)];
-      if (rankA !== rankB) {
-        return rankA - rankB;
-      }
-      const dateA = a.action_date
-        ? new Date(a.action_date).getTime()
-        : Number.MAX_SAFE_INTEGER;
-      const dateB = b.action_date
-        ? new Date(b.action_date).getTime()
-        : Number.MAX_SAFE_INTEGER;
-      return dateA - dateB;
-    });
+    const activeReferrals = filteredReferrals.filter(
+      (referral) => referral.status !== "resolved"
+    );
+    const resolvedReferrals = filteredReferrals.filter(
+      (referral) => referral.status === "resolved"
+    );
+    const sortByPriority = (items: Referral[]) =>
+      [...items].sort((a, b) => {
+        const rankA = priorityRank[getPriority(a)];
+        const rankB = priorityRank[getPriority(b)];
+        if (rankA !== rankB) {
+          return rankA - rankB;
+        }
+        const dateA = a.action_date
+          ? new Date(a.action_date).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        const dateB = b.action_date
+          ? new Date(b.action_date).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        return dateA - dateB;
+      });
+    return [...sortByPriority(activeReferrals), ...sortByPriority(resolvedReferrals)];
   }, [filteredReferrals]);
 
-  const priorityDot = (level: PriorityLevel) => {
-    const color =
-      level === "immediate"
-        ? "#d14343"
-        : level === "high"
-        ? "#d17c43"
-        : level === "standard"
-        ? "#d1a943"
-        : "#2f9a5a";
+  const priorityDot = (level: PriorityLevel, resolved = false) => {
+    const color = resolved
+      ? "#98a2b3"
+      : level === "immediate"
+      ? "#d14343"
+      : level === "high"
+      ? "#d17c43"
+      : level === "standard"
+      ? "#d1a943"
+      : "#2f9a5a";
     return (
       <span
         aria-hidden
@@ -248,7 +257,7 @@ export default function ReferralsPage() {
                 <tr key={referral.id}>
                   <td>
                     <span style={{ display: "flex", alignItems: "center" }}>
-                      {priorityDot(getPriority(referral))}
+                      {priorityDot(getPriority(referral), referral.status === "resolved")}
                       <span className="page-subtitle">
                         {PRIORITY_LABELS[getPriority(referral)]}
                       </span>
