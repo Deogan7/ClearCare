@@ -20,11 +20,8 @@ export default function Sidebar() {
             key={item.to}
             to={item.to}
             end={item.to === "/"}
-            className={({ isActive }) =>
-              `nav-link${isActive ? " active" : ""}`
-            }
+            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
           >
-            <span className="nav-dot" aria-hidden />
             {item.label}
           </NavLink>
         ))}
