@@ -10,22 +10,45 @@ import type { Referral, ReferralStatus } from "../../types/referral";
 import ReferralFormModal from "./ReferralFormModal";
 
 const STATUS_LABELS: Record<ReferralStatus, string> = {
-  pending_confirmation: "Pending",
-  scheduled: "Scheduled",
-  attended: "Attended",
-  resolved: "Resolved",
+  sent_to_specialist: "Sent to Specialist",
+  resent_to_specialist: "Resent to Specialist",
+  referral_received: "Referral Received",
+  appointment_scheduling: "Scheduling",
+  appointment_scheduled: "Scheduled",
+  patient_notified: "Patient Notified",
+  completed: "Completed",
   missed: "Missed",
+  reschedule_requested: "Reschedule Requested",
+  closed: "Closed",
 };
 
 const STATUS_OPTIONS: Array<{ value: ReferralStatus | "all"; label: string }> =
   [
     { value: "all", label: "All statuses" },
-    { value: "pending_confirmation", label: "Pending" },
-    { value: "scheduled", label: "Scheduled" },
-    { value: "attended", label: "Attended" },
-    { value: "resolved", label: "Resolved" },
+    { value: "sent_to_specialist", label: "Sent to Specialist" },
+    { value: "resent_to_specialist", label: "Resent to Specialist" },
+    { value: "referral_received", label: "Referral Received" },
+    { value: "appointment_scheduling", label: "Scheduling" },
+    { value: "appointment_scheduled", label: "Scheduled" },
+    { value: "patient_notified", label: "Patient Notified" },
+    { value: "completed", label: "Completed" },
     { value: "missed", label: "Missed" },
+    { value: "reschedule_requested", label: "Reschedule Requested" },
+    { value: "closed", label: "Closed" },
   ];
+
+const STATUS_ROW_COLOR: Record<ReferralStatus, string> = {
+  sent_to_specialist: "#fef3c7",      // warm amber — awaiting action
+  resent_to_specialist: "#fde68a",    // deeper amber — needs attention
+  referral_received: "#dbeafe",       // light blue — acknowledged
+  appointment_scheduling: "#e0e7ff",  // soft indigo — in progress
+  appointment_scheduled: "#c7d2fe",   // indigo — confirmed
+  patient_notified: "#d1fae5",        // light green — on track
+  completed: "#a7f3d0",              // green — done
+  missed: "#fecaca",                 // light red — action needed
+  reschedule_requested: "#fed7aa",   // light orange — pending reschedule
+  closed: "#e5e7eb",                 // neutral grey — resolved
+};
 
 type PriorityLevel = "immediate" | "high" | "standard" | "deferred";
 
@@ -151,31 +174,40 @@ export default function ReferralsPage() {
   };
 
   const sortedReferrals = useMemo(() => {
-    return [...filteredReferrals].sort((a, b) => {
-      const rankA = priorityRank[getPriority(a)];
-      const rankB = priorityRank[getPriority(b)];
-      if (rankA !== rankB) {
-        return rankA - rankB;
-      }
-      const dateA = a.action_date
-        ? new Date(a.action_date).getTime()
-        : Number.MAX_SAFE_INTEGER;
-      const dateB = b.action_date
-        ? new Date(b.action_date).getTime()
-        : Number.MAX_SAFE_INTEGER;
-      return dateA - dateB;
-    });
+    const activeReferrals = filteredReferrals.filter(
+      (referral) => referral.status !== "closed"
+    );
+    const resolvedReferrals = filteredReferrals.filter(
+      (referral) => referral.status === "closed"
+    );
+    const sortByPriority = (items: Referral[]) =>
+      [...items].sort((a, b) => {
+        const rankA = priorityRank[getPriority(a)];
+        const rankB = priorityRank[getPriority(b)];
+        if (rankA !== rankB) {
+          return rankA - rankB;
+        }
+        const dateA = a.action_date
+          ? new Date(a.action_date).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        const dateB = b.action_date
+          ? new Date(b.action_date).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        return dateA - dateB;
+      });
+    return [...sortByPriority(activeReferrals), ...sortByPriority(resolvedReferrals)];
   }, [filteredReferrals]);
 
-  const priorityDot = (level: PriorityLevel) => {
-    const color =
-      level === "immediate"
-        ? "#d14343"
-        : level === "high"
-        ? "#d17c43"
-        : level === "standard"
-        ? "#d1a943"
-        : "#2f9a5a";
+  const priorityDot = (level: PriorityLevel, resolved = false) => {
+    const color = resolved
+      ? "#98a2b3"
+      : level === "immediate"
+      ? "#d14343"
+      : level === "high"
+      ? "#d17c43"
+      : level === "standard"
+      ? "#d1a943"
+      : "#2f9a5a";
     return (
       <span
         aria-hidden
@@ -245,10 +277,16 @@ export default function ReferralsPage() {
             ]}
           >
               {sortedReferrals.map((referral) => (
-                <tr key={referral.id}>
+                <tr
+                  key={referral.id}
+                  style={{
+                    backgroundColor: STATUS_ROW_COLOR[referral.status] + "40",
+                    borderLeft: `4px solid ${STATUS_ROW_COLOR[referral.status]}`,
+                  }}
+                >
                   <td>
                     <span style={{ display: "flex", alignItems: "center" }}>
-                      {priorityDot(getPriority(referral))}
+                      {priorityDot(getPriority(referral), referral.status === "closed")}
                       <span className="page-subtitle">
                         {PRIORITY_LABELS[getPriority(referral)]}
                       </span>

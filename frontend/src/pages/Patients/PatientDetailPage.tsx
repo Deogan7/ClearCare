@@ -8,13 +8,19 @@ import { getReferrals } from "../../services/referralService";
 import type { Patient } from "../../types/patient";
 import type { Referral } from "../../types/referral";
 import PatientFormModal from "./PatientFormModal";
+import PatientWorkflowStepper from "../../components/patients/PatientWorkflowStepper";
 
 const STATUS_LABELS: Record<Referral["status"], string> = {
-  pending_confirmation: "Pending",
-  scheduled: "Scheduled",
-  attended: "Attended",
-  resolved: "Resolved",
+  sent_to_specialist: "Sent to Specialist",
+  resent_to_specialist: "Resent to Specialist",
+  referral_received: "Referral Received",
+  appointment_scheduling: "Scheduling",
+  appointment_scheduled: "Scheduled",
+  patient_notified: "Patient Notified",
+  completed: "Completed",
   missed: "Missed",
+  reschedule_requested: "Reschedule Requested",
+  closed: "Closed",
 };
 
 export default function PatientDetailPage() {
@@ -69,6 +75,29 @@ export default function PatientDetailPage() {
     }
     return date.toLocaleDateString();
   };
+
+  const getTimeSafe = (value: string | null) => {
+    if (!value) {
+      return 0;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return 0;
+    }
+    return date.getTime();
+  };
+
+  const latestReferral = useMemo(() => {
+    if (patientReferrals.length === 0) {
+      return null;
+    }
+    return [...patientReferrals].sort((a, b) => {
+      const aTime = getTimeSafe(a.updated_at) || getTimeSafe(a.created_at);
+      const bTime = getTimeSafe(b.updated_at) || getTimeSafe(b.created_at);
+      return bTime - aTime;
+    })[0];
+  }, [patientReferrals]);
+
 
   if (loading) {
     return (
@@ -125,6 +154,8 @@ export default function PatientDetailPage() {
             </tr>
           </tbody>
         </Table>
+        <PatientWorkflowStepper referral={latestReferral} />
+
         <h2>Referral history</h2>
         {patientReferrals.length === 0 ? (
           <div>No referrals for this patient.</div>

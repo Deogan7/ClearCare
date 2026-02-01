@@ -11,6 +11,7 @@ import { getReferrals } from "../services/referralService";
 import { getStormStatus } from "../services/weatherService";
 import type { Patient } from "../types/patient";
 import type { Referral } from "../types/referral";
+import type { StormStatusResponse } from "../types/weather";
 
 interface ActivityItem {
   id: string;
@@ -104,8 +105,7 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [lastWeatherCheck, setLastWeatherCheck] = useState<Date | null>(null);
   const [isStormSevere, setIsStormSevere] = useState(false);
-  const [overdueOpen, setOverdueOpen] = useState(false);
-  const [tasksOpen, setTasksOpen] = useState(false);
+  const [stormStatus, setStormStatus] = useState<StormStatusResponse | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -137,12 +137,15 @@ export default function DashboardPage() {
       }
 
       if (stormResult.status === "fulfilled") {
-        const stormData = stormResult.value?.data ?? null;
+        const stormData = stormResult.value ?? null;
         const severe = Boolean(
           stormData?.is_severe ?? stormData?.isSevere ?? stormData?.severe
         );
         setIsStormSevere(severe);
+        setStormStatus(stormData);
         setLastWeatherCheck(new Date());
+      } else {
+        setStormStatus(null);
       }
 
       setLastUpdated(new Date());
@@ -323,6 +326,32 @@ export default function DashboardPage() {
     return `Last weather check: ${formatTime(lastWeatherCheck)}`;
   }, [lastWeatherCheck]);
 
+  const weatherSummary = useMemo(() => {
+    if (!stormStatus) {
+      return {
+        temp: "--",
+        snow: "--",
+        description: "Weather data unavailable.",
+        alerts: 0,
+        thresholds: "-- / --",
+        severityClass: "info",
+        severityLabel: "unknown",
+      };
+    }
+    const thresholds = stormStatus.thresholds
+      ? `${stormStatus.thresholds.temp_c}Â°C / ${stormStatus.thresholds.snow_cm}cm`
+      : "-- / --";
+    return {
+      temp: `${stormStatus.temperature_c}Â°C`,
+      snow: `${stormStatus.snow_cm}cm`,
+      description: stormStatus.description || "No description available.",
+      alerts: Array.isArray(stormStatus.alerts) ? stormStatus.alerts.length : 0,
+      thresholds,
+      severityClass: stormStatus.is_severe ? "danger" : "ok",
+      severityLabel: stormStatus.is_severe ? "severe" : "clear",
+    };
+  }, [stormStatus]);
+
   return (
     <AppShell>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -428,36 +457,39 @@ export default function DashboardPage() {
           />
           <ClickableStatCard
             label="Weather alerts"
-            value={isStormSevere ? "1" : "0"}
-            helper={isStormSevere ? "Action required" : "No warnings"}
+            value={`${weatherSummary.alerts}`}
+            helper={weatherSummary.alerts > 0 ? "Review active alerts" : "No warnings"}
             onClick={() => navigate("/weather")}
           />
         </div>
 
-        {/* Dense, scrollable activity feed */}
-        <div
-          style={{
-            border: "1px solid #e5e7eb",
-            borderRadius: 10,
-            background: "#fff",
-            padding: "10px 12px",
-          }}
+        <Card
+          title="Weather snapshot"
+          action={<span className={`badge ${weatherSummary.severityClass}`}>{weatherSummary.severityLabel}</span>}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <strong>Recent activity</strong>
-            <button className="button ghost" style={{ padding: "4px 8px" }}>
-              View all activity ?
-            </button>
+          <div className="page-subtitle">{weatherSummary.description}</div>
+          <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
+            <div>
+              <strong>{weatherSummary.temp}</strong>
+              <div className="page-subtitle">Temperature</div>
+            </div>
+            <div>
+              <strong>{weatherSummary.snow}</strong>
+              <div className="page-subtitle">Snowfall</div>
+            </div>
+            <div>
+              <strong>{weatherSummary.alerts}</strong>
+              <div className="page-subtitle">Active alerts</div>
+            </div>
+            <div>
+              <strong>{weatherSummary.thresholds}</strong>
+              <div className="page-subtitle">Thresholds</div>
+            </div>
           </div>
-          <div
-            style={{
-              maxHeight: 200,
-              overflowY: "auto",
-              marginTop: 8,
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
+        </Card>
+
+        <Card title="Recent activity">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {activityItems.length === 0 ? (
               <div className="page-subtitle" style={{ padding: "6px 0" }}>
                 No recent activity.
@@ -527,7 +559,7 @@ export default function DashboardPage() {
                   <div style={{ fontWeight: 600 }}>{patientName}</div>
                   <div className="page-subtitle">Referral {referral.ticket_id}</div>
                   <div className="page-subtitle">
-                    {reason} • {daysOverdue}d overdue
+                    {reason} ï¿½ {daysOverdue}d overdue
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="button secondary" style={{ padding: "6px 10px" }}>
@@ -577,7 +609,7 @@ export default function DashboardPage() {
                 <div>
                   <div style={{ fontWeight: 600 }}>{task.taskType}</div>
                   <div className="page-subtitle">
-                    {task.context} • {task.label}
+                    {task.context} ï¿½ {task.label}
                   </div>
                 </div>
                 <span className="badge warn">{task.dueLabel ?? "Today"}</span>

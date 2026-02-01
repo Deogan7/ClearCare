@@ -21,6 +21,7 @@ export default function ReferralFormModal({
   const [patientId, setPatientId] = useState("");
   const [description, setDescription] = useState("");
   const [referredTo, setReferredTo] = useState("");
+  const [specialistPhone, setSpecialistPhone] = useState("");
   const [actionDate, setActionDate] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [createdBy, setCreatedBy] = useState("");
@@ -40,6 +41,7 @@ export default function ReferralFormModal({
     setPatientId("");
     setDescription("");
     setReferredTo("");
+    setSpecialistPhone("");
     setActionDate("");
     setScheduledDate("");
     setCreatedBy("");
@@ -58,6 +60,7 @@ export default function ReferralFormModal({
         patient_id: patientId,
         description: description.trim() ? description.trim() : null,
         referred_to: referredTo.trim(),
+        specialist_phone: specialistPhone.trim() ? specialistPhone.trim() : null,
         action_date: actionDate,
         scheduled_date: scheduledDate.trim() ? scheduledDate : null,
         created_by: createdBy.trim(),
@@ -98,6 +101,15 @@ export default function ReferralFormModal({
             placeholder="e.g. Calgary Foothills Cardiology"
             value={referredTo}
             onChange={(event) => setReferredTo(event.target.value)}
+          />
+        </label>
+        <label className="form-field">
+          <span>Specialist phone</span>
+          <input
+            type="tel"
+            placeholder="e.g. +14031234567"
+            value={specialistPhone}
+            onChange={(event) => setSpecialistPhone(event.target.value)}
           />
         </label>
         <label className="form-field">

@@ -2,34 +2,64 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppShell from "../../components/common/AppShell";
 import Button from "../../components/common/Button";
-import Table from "../../components/common/Table";
+import Card from "../../components/common/Card";
+import PageHeader from "../../components/common/PageHeader";
+import PatientWorkflowStepper from "../../components/patients/PatientWorkflowStepper";
 import { getReferral, updateReferral } from "../../services/referralService";
 import { getPatient } from "../../services/patientService";
 import type { Patient } from "../../types/patient";
 import type { Referral, ReferralStatus } from "../../types/referral";
 
 const STATUS_ORDER: ReferralStatus[] = [
-  "pending_confirmation",
-  "scheduled",
-  "attended",
-  "resolved",
+  "sent_to_specialist",
+  "resent_to_specialist",
+  "referral_received",
+  "appointment_scheduling",
+  "appointment_scheduled",
+  "patient_notified",
+  "completed",
   "missed",
+  "reschedule_requested",
+  "closed",
 ];
 
 const STATUS_LABELS: Record<ReferralStatus, string> = {
-  pending_confirmation: "Pending",
-  scheduled: "Scheduled",
-  attended: "Attended",
-  resolved: "Resolved",
+  sent_to_specialist: "Sent to Specialist",
+  resent_to_specialist: "Resent to Specialist",
+  referral_received: "Referral Received",
+  appointment_scheduling: "Scheduling",
+  appointment_scheduled: "Scheduled",
+  patient_notified: "Patient Notified",
+  completed: "Completed",
   missed: "Missed",
+  reschedule_requested: "Reschedule Requested",
+  closed: "Closed",
+};
+
+const STATUS_BADGE_CLASS: Record<ReferralStatus, string> = {
+  sent_to_specialist: "warn",
+  resent_to_specialist: "warn",
+  referral_received: "info",
+  appointment_scheduling: "info",
+  appointment_scheduled: "info",
+  patient_notified: "ok",
+  completed: "ok",
+  missed: "danger",
+  reschedule_requested: "warn",
+  closed: "ok",
 };
 
 const STATUS_TRANSITIONS: Record<ReferralStatus, ReferralStatus[]> = {
-  pending_confirmation: ["scheduled"],
-  scheduled: ["attended", "missed"],
-  attended: ["resolved"],
-  resolved: [],
-  missed: [],
+  sent_to_specialist: ["resent_to_specialist", "referral_received"],
+  resent_to_specialist: ["referral_received"],
+  referral_received: ["appointment_scheduling"],
+  appointment_scheduling: ["appointment_scheduled"],
+  appointment_scheduled: ["patient_notified"],
+  patient_notified: ["completed", "missed"],
+  completed: ["closed"],
+  missed: ["reschedule_requested"],
+  reschedule_requested: ["appointment_scheduling"],
+  closed: [],
 };
 
 const toDateInputValue = (value: string | null) => {
@@ -175,84 +205,128 @@ export default function ReferralDetailPage() {
 
   return (
     <AppShell>
-      <div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <Button type="button" onClick={() => navigate("/referrals")}>
           Back to referrals
         </Button>
-        <h1>Referral {referral.ticket_id}</h1>
-        <Table>
-          <tbody>
-            <tr>
-              <th>Patient</th>
-              <td>
-                {patient ? `${patient.first_name} ${patient.last_name}` : "—"}
-              </td>
-            </tr>
-            <tr>
-              <th>Status</th>
-              <td>{STATUS_LABELS[referral.status]}</td>
-            </tr>
-            <tr>
-              <th>Referred to</th>
-              <td>{referral.referred_to}</td>
-            </tr>
-            <tr>
-              <th>Action date</th>
-              <td>{formatDate(referral.action_date)}</td>
-            </tr>
-            <tr>
-              <th>Scheduled date</th>
-              <td>{formatDate(referral.scheduled_date)}</td>
-            </tr>
-            <tr>
-              <th>Created by</th>
-              <td>{referral.created_by}</td>
-            </tr>
-          </tbody>
-        </Table>
-        <h2>Status timeline</h2>
-        <ul>
-          {STATUS_ORDER.map((status) => (
-            <li key={status}>
-              {STATUS_LABELS[status]}
-              {status === referral.status ? " (current)" : ""}
-            </li>
-          ))}
-        </ul>
-        <div>
-          {nextStatuses.map((status) => (
-            <Button
-              key={status}
-              type="button"
-              onClick={() => handleStatusChange(status)}
-              disabled={saving}
+
+        <PageHeader
+          title={`Referral ${referral.ticket_id}`}
+          subtitle={
+            patient
+              ? `${patient.first_name} ${patient.last_name} • ${referral.referred_to}`
+              : referral.referred_to
+          }
+          actions={
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span className={`badge ${STATUS_BADGE_CLASS[referral.status]}`}>
+                {STATUS_LABELS[referral.status]}
+              </span>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => navigate("/patients/" + referral.patient_id)}
+                disabled={!referral.patient_id}
+              >
+                View patient
+              </Button>
+            </div>
+          }
+        />
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 2fr) minmax(260px, 1fr)",
+            gap: 24,
+            alignItems: "start",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <PatientWorkflowStepper referral={referral} />
+
+            <Card title="Next actions">
+              {nextStatuses.length === 0 ? (
+                <div className="page-subtitle">No status changes available.</div>
+              ) : (
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {nextStatuses.map((status) => (
+                    <Button
+                      key={status}
+                      type="button"
+                      onClick={() => handleStatusChange(status)}
+                      disabled={saving}
+                    >
+                      Mark as {STATUS_LABELS[status]}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title="Update details">
+              {updateError ? <div className="page-subtitle">{updateError}</div> : null}
+              <form onSubmit={handleUpdate}>
+                <div style={{ display: "grid", gap: 16, maxWidth: 520 }}>
+                  <label>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Scheduled date</div>
+                    <input
+                      type="date"
+                      value={scheduledDate}
+                      onChange={(event) => setScheduledDate(event.target.value)}
+                      style={{ width: "100%" }}
+                    />
+                  </label>
+                  <label>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Notes</div>
+                    <textarea
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                      style={{ width: "100%", minHeight: 120 }}
+                    />
+                  </label>
+                  <Button type="submit" disabled={saving} style={{ alignSelf: "flex-start" }}>
+                    {saving ? "Saving..." : "Save changes"}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Card
+              title="Referral summary"
+              action={
+                <span className={`badge ${STATUS_BADGE_CLASS[referral.status]}`}>
+                  {STATUS_LABELS[referral.status]}
+                </span>
+              }
             >
-              Mark as {STATUS_LABELS[status]}
-            </Button>
-          ))}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <div className="page-subtitle">Patient</div>
+                  <div>{patient ? `${patient.first_name} ${patient.last_name}` : "—"}</div>
+                </div>
+                <div>
+                  <div className="page-subtitle">Referred to</div>
+                  <div>{referral.referred_to}</div>
+                </div>
+                <div>
+                  <div className="page-subtitle">Action date</div>
+                  <div>{formatDate(referral.action_date)}</div>
+                </div>
+                <div>
+                  <div className="page-subtitle">Scheduled date</div>
+                  <div>{formatDate(referral.scheduled_date)}</div>
+                </div>
+                <div>
+                  <div className="page-subtitle">Created by</div>
+                  <div>{referral.created_by}</div>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
-        <h2>Update details</h2>
-        {updateError ? <div>{updateError}</div> : null}
-        <form onSubmit={handleUpdate}>
-          <label>
-            Scheduled date
-            <input
-              type="date"
-              value={scheduledDate}
-              onChange={(event) => setScheduledDate(event.target.value)}
-            />
-          </label>
-          <label>
-            Notes
-            <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-            />
-          </label>
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save changes"}
-          </Button>
-        </form>
       </div>
     </AppShell>
   );

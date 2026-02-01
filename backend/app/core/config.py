@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     # Vapi AI
     VAPI_API_KEY: str = ""
     VAPI_BASE_URL: str = "https://api.vapi.ai"
+    VAPI_PHONE_NUMBER_ID: str = ""  # Your Vapi phone number ID (from dashboard)
+    VAPI_SERVER_URL: str = ""  # Public webhook URL (ngrok URL + /api/voice/webhook)
 
     # Twilio
     TWILIO_ACCOUNT_SID: str = ""
@@ -29,6 +31,9 @@ class Settings(BaseSettings):
 
     # Safety net
     SAFETY_NET_HOURS: int = 48
+
+    # Demo mode — shortens all timers so the full workflow runs in minutes
+    DEMO_MODE: bool = False
 
     # Auth
     SECRET_KEY: str = "CHANGE-ME-IN-PRODUCTION"
