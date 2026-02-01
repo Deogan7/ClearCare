@@ -6,6 +6,8 @@ import Card from "../components/common/Card";
 import PageHeader from "../components/common/PageHeader";
 import StatCard from "../components/common/StatCard";
 import SideDrawer from "../components/common/SideDrawer";
+import StormModeModal from "../components/storm/StormModeModal";
+import { useStormMode } from "../context/StormModeContext";
 import { getPatients } from "../services/patientService";
 import { getReferrals } from "../services/referralService";
 import { getStormStatus } from "../services/weatherService";
@@ -100,6 +102,7 @@ function ClickableStatCard({
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { isActive: stormModeActive, status: stormModeStatus } = useStormMode();
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -108,6 +111,7 @@ export default function DashboardPage() {
   const [stormStatus, setStormStatus] = useState<StormStatusResponse | null>(null);
   const [overdueOpen, setOverdueOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [stormModalOpen, setStormModalOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -139,10 +143,8 @@ export default function DashboardPage() {
       }
 
       if (stormResult.status === "fulfilled") {
-        const stormData = stormResult.value?.data ?? null;
-        const severe = Boolean(
-          stormData?.is_severe ?? stormData?.isSevere ?? stormData?.severe
-        );
+        const stormData = stormResult.value ?? null;
+        const severe = Boolean(stormData?.is_severe);
         setIsStormSevere(severe);
         setStormStatus(stormData);
         setLastWeatherCheck(new Date());
@@ -366,6 +368,25 @@ export default function DashboardPage() {
           <div className="page-subtitle">{lastUpdatedLabel}</div>
         </div>
 
+        {/* Storm Mode banner */}
+        {stormModeActive && (
+          <div className="storm-dashboard-banner">
+            <div className="storm-banner-left">
+              <span className="storm-banner-icon">{"\u26A1"}</span>
+              <div className="storm-banner-info">
+                <div className="storm-banner-title">Storm Mode Active</div>
+                <div className="storm-banner-subtitle">
+                  {stormModeStatus?.converted_count ?? 0} appointment(s) converted to virtual care
+                  {stormModeStatus?.trigger === "auto" ? " (auto-triggered)" : ""}
+                </div>
+              </div>
+            </div>
+            <Button variant="ghost" onClick={() => setStormModalOpen(true)}>
+              Manage
+            </Button>
+          </div>
+        )}
+
         {/* Compact horizontal action strip for priorities */}
         <div
           style={{
@@ -374,9 +395,9 @@ export default function DashboardPage() {
             justifyContent: "space-between",
             gap: 12,
             padding: "10px 12px",
-            border: "1px solid #e5e7eb",
+            border: "1px solid var(--border)",
             borderRadius: 10,
-            background: "#fff",
+            background: "var(--surface)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -413,8 +434,8 @@ export default function DashboardPage() {
             justifyContent: "space-between",
             gap: 12,
             padding: "8px 12px",
-            borderLeft: `4px solid ${alertState === "red" ? "#d14343" : alertState === "yellow" ? "#d1a943" : "#2f9a5a"}`,
-            background: "#f8fafc",
+            borderLeft: `4px solid ${alertState === "red" ? "var(--danger)" : alertState === "yellow" ? "var(--warn)" : "var(--ok)"}`,
+            background: "var(--surface)",
             borderRadius: 8,
           }}
         >
@@ -505,7 +526,7 @@ export default function DashboardPage() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     padding: "6px 0",
-                    borderBottom: index === activityItems.length - 1 ? "none" : "1px solid #eef2f7",
+                    borderBottom: index === activityItems.length - 1 ? "none" : "1px solid var(--border)",
                   }}
                 >
                   <span>{item.label}</span>
@@ -550,7 +571,7 @@ export default function DashboardPage() {
                 <div
                   key={referral.id}
                   style={{
-                    border: "1px solid #e5e7eb",
+                    border: "1px solid var(--border)",
                     borderRadius: 10,
                     padding: "10px 12px",
                     display: "flex",
@@ -599,7 +620,7 @@ export default function DashboardPage() {
               <div
                 key={task.id}
                 style={{
-                  border: "1px solid #e5e7eb",
+                  border: "1px solid var(--border)",
                   borderRadius: 10,
                   padding: "10px 12px",
                   display: "flex",
@@ -627,6 +648,8 @@ export default function DashboardPage() {
           </button>
         </div>
       </SideDrawer>
+
+      <StormModeModal open={stormModalOpen} onClose={() => setStormModalOpen(false)} />
     </AppShell>
   );
 }

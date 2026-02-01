@@ -27,3 +27,25 @@ export type StormStatusResponse = {
   thresholds: WeatherThresholds;
   alerts: WeatherAlert[];
 };
+
+export type StormModeStatus = {
+  is_active: boolean;
+  trigger: string | null;
+  activated_at: string | null;
+  window_hours: number | null;
+  converted_count: number;
+  activated_by: string | null;
+};
+
+export type StormModeActivateResponse = {
+  status: string;
+  trigger: string | null;
+  window_hours: number | null;
+  converted_count: number;
+  activated_at: string | null;
+};
+
+export type ConvertiblePreview = {
+  count: number;
+  window_hours: number;
+};

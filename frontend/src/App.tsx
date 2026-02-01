@@ -7,20 +7,24 @@ import PatientsPage from "./pages/Patients/PatientsPage";
 import PatientDetailPage from "./pages/Patients/PatientDetailPage";
 import WeatherPage from "./pages/WeatherPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import Snowfall from "./components/common/Snowfall";
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/referrals" element={<ReferralsPage />} />
-        <Route path="/referrals/:id" element={<ReferralDetailPage />} />
-        <Route path="/patients" element={<PatientsPage />} />
-        <Route path="/patients/:id" element={<PatientDetailPage />} />
-        <Route path="/weather" element={<WeatherPage />} />
-      </Route>
-    </Routes>
+    <>
+      <Snowfall />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/referrals" element={<ReferralsPage />} />
+          <Route path="/referrals/:id" element={<ReferralDetailPage />} />
+          <Route path="/patients" element={<PatientsPage />} />
+          <Route path="/patients/:id" element={<PatientDetailPage />} />
+          <Route path="/weather" element={<WeatherPage />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 
