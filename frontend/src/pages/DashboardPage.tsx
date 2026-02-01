@@ -10,6 +10,7 @@ import { getReferrals } from "../services/referralService";
 import { getStormStatus } from "../services/weatherService";
 import type { Patient } from "../types/patient";
 import type { Referral } from "../types/referral";
+import type { StormStatusResponse } from "../types/weather";
 
 interface ActivityItem {
   id: string;
@@ -101,6 +102,7 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [lastWeatherCheck, setLastWeatherCheck] = useState<Date | null>(null);
   const [isStormSevere, setIsStormSevere] = useState(false);
+  const [stormStatus, setStormStatus] = useState<StormStatusResponse | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -132,12 +134,15 @@ export default function DashboardPage() {
       }
 
       if (stormResult.status === "fulfilled") {
-        const stormData = stormResult.value?.data ?? null;
+        const stormData = stormResult.value ?? null;
         const severe = Boolean(
           stormData?.is_severe ?? stormData?.isSevere ?? stormData?.severe
         );
         setIsStormSevere(severe);
+        setStormStatus(stormData);
         setLastWeatherCheck(new Date());
+      } else {
+        setStormStatus(null);
       }
 
       setLastUpdated(new Date());
@@ -307,6 +312,32 @@ export default function DashboardPage() {
     return `Last weather check: ${formatTime(lastWeatherCheck)}`;
   }, [lastWeatherCheck]);
 
+  const weatherSummary = useMemo(() => {
+    if (!stormStatus) {
+      return {
+        temp: "--",
+        snow: "--",
+        description: "Weather data unavailable.",
+        alerts: 0,
+        thresholds: "-- / --",
+        severityClass: "info",
+        severityLabel: "unknown",
+      };
+    }
+    const thresholds = stormStatus.thresholds
+      ? `${stormStatus.thresholds.temp_c}°C / ${stormStatus.thresholds.snow_cm}cm`
+      : "-- / --";
+    return {
+      temp: `${stormStatus.temperature_c}°C`,
+      snow: `${stormStatus.snow_cm}cm`,
+      description: stormStatus.description || "No description available.",
+      alerts: Array.isArray(stormStatus.alerts) ? stormStatus.alerts.length : 0,
+      thresholds,
+      severityClass: stormStatus.is_severe ? "danger" : "ok",
+      severityLabel: stormStatus.is_severe ? "severe" : "clear",
+    };
+  }, [stormStatus]);
+
   return (
     <AppShell>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -378,11 +409,36 @@ export default function DashboardPage() {
           />
           <ClickableStatCard
             label="Weather alerts"
-            value={isStormSevere ? "1" : "0"}
-            helper={isStormSevere ? "Action required" : "No warnings"}
+            value={`${weatherSummary.alerts}`}
+            helper={weatherSummary.alerts > 0 ? "Review active alerts" : "No warnings"}
             onClick={() => navigate("/weather")}
           />
         </div>
+
+        <Card
+          title="Weather snapshot"
+          action={<span className={`badge ${weatherSummary.severityClass}`}>{weatherSummary.severityLabel}</span>}
+        >
+          <div className="page-subtitle">{weatherSummary.description}</div>
+          <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
+            <div>
+              <strong>{weatherSummary.temp}</strong>
+              <div className="page-subtitle">Temperature</div>
+            </div>
+            <div>
+              <strong>{weatherSummary.snow}</strong>
+              <div className="page-subtitle">Snowfall</div>
+            </div>
+            <div>
+              <strong>{weatherSummary.alerts}</strong>
+              <div className="page-subtitle">Active alerts</div>
+            </div>
+            <div>
+              <strong>{weatherSummary.thresholds}</strong>
+              <div className="page-subtitle">Thresholds</div>
+            </div>
+          </div>
+        </Card>
 
         <Card title="Recent activity">
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

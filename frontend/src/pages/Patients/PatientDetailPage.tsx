@@ -8,6 +8,7 @@ import { getReferrals } from "../../services/referralService";
 import type { Patient } from "../../types/patient";
 import type { Referral } from "../../types/referral";
 import PatientFormModal from "./PatientFormModal";
+import PatientWorkflowStepper from "../../components/patients/PatientWorkflowStepper";
 
 const STATUS_LABELS: Record<Referral["status"], string> = {
   pending_confirmation: "Pending",
@@ -70,6 +71,29 @@ export default function PatientDetailPage() {
     return date.toLocaleDateString();
   };
 
+  const getTimeSafe = (value: string | null) => {
+    if (!value) {
+      return 0;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return 0;
+    }
+    return date.getTime();
+  };
+
+  const latestReferral = useMemo(() => {
+    if (patientReferrals.length === 0) {
+      return null;
+    }
+    return [...patientReferrals].sort((a, b) => {
+      const aTime = getTimeSafe(a.updated_at) || getTimeSafe(a.created_at);
+      const bTime = getTimeSafe(b.updated_at) || getTimeSafe(b.created_at);
+      return bTime - aTime;
+    })[0];
+  }, [patientReferrals]);
+
+
   if (loading) {
     return (
       <AppShell>
@@ -125,6 +149,8 @@ export default function PatientDetailPage() {
             </tr>
           </tbody>
         </Table>
+        <PatientWorkflowStepper referral={latestReferral} />
+
         <h2>Referral history</h2>
         {patientReferrals.length === 0 ? (
           <div>No referrals for this patient.</div>
