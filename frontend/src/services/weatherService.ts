@@ -5,6 +5,8 @@ import type {
   StormModeStatus,
   StormModeActivateResponse,
   ConvertiblePreview,
+  WellnessCheckSummary,
+  DriverNotificationSummary,
 } from "../types/weather";
 
 export async function getStormStatus(): Promise<StormStatusResponse> {
@@ -42,5 +44,15 @@ export async function previewConversions(windowHours = 48): Promise<ConvertibleP
   const response = await api.get<ConvertiblePreview>("/storm-mode/preview", {
     params: { window_hours: windowHours },
   });
+  return response.data;
+}
+
+export async function getWellnessChecks(): Promise<WellnessCheckSummary> {
+  const response = await api.get<WellnessCheckSummary>("/storm-mode/wellness-checks");
+  return response.data;
+}
+
+export async function getDriverNotifications(): Promise<DriverNotificationSummary> {
+  const response = await api.get<DriverNotificationSummary>("/storm-mode/driver-notifications");
   return response.data;
 }

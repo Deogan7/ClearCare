@@ -7,6 +7,7 @@ import StormModeModal from "../storm/StormModeModal";
 const titles: Record<string, string> = {
   "/": "Dashboard",
   "/referrals": "Referrals",
+  "/appointments": "Appointments",
   "/patients": "Patients",
   "/weather": "Weather",
 };

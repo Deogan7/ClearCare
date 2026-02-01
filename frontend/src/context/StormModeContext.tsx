@@ -10,16 +10,25 @@ import {
   getStormModeStatus,
   activateStormMode as apiActivate,
   deactivateStormMode as apiDeactivate,
+  getWellnessChecks,
+  getDriverNotifications,
 } from "../services/weatherService";
-import type { StormModeStatus } from "../types/weather";
+import type {
+  StormModeStatus,
+  WellnessCheckSummary,
+  DriverNotificationSummary,
+} from "../types/weather";
 
 interface StormModeContextType {
   isActive: boolean;
   status: StormModeStatus | null;
   loading: boolean;
+  wellnessSummary: WellnessCheckSummary | null;
+  driverNotifications: DriverNotificationSummary | null;
   activate: (windowHours?: number) => Promise<number>;
   deactivate: () => Promise<void>;
   refresh: () => Promise<void>;
+  refreshWellness: () => Promise<void>;
 }
 
 const StormModeContext = createContext<StormModeContextType | null>(null);
@@ -27,6 +36,10 @@ const StormModeContext = createContext<StormModeContextType | null>(null);
 export function StormModeProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<StormModeStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [wellnessSummary, setWellnessSummary] =
+    useState<WellnessCheckSummary | null>(null);
+  const [driverNotifications, setDriverNotifications] =
+    useState<DriverNotificationSummary | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -37,11 +50,42 @@ export function StormModeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshWellness = useCallback(async () => {
+    if (!status?.is_active) {
+      setWellnessSummary(null);
+      setDriverNotifications(null);
+      return;
+    }
+    try {
+      const [wc, dn] = await Promise.allSettled([
+        getWellnessChecks(),
+        getDriverNotifications(),
+      ]);
+      if (wc.status === "fulfilled") setWellnessSummary(wc.value);
+      if (dn.status === "fulfilled") setDriverNotifications(dn.value);
+    } catch {
+      // Non-critical
+    }
+  }, [status?.is_active]);
+
+  // Poll storm mode status every 30s
   useEffect(() => {
     void refresh();
     const interval = setInterval(() => void refresh(), 30_000);
     return () => clearInterval(interval);
   }, [refresh]);
+
+  // Poll wellness data every 10s when storm mode is active
+  useEffect(() => {
+    if (status?.is_active) {
+      void refreshWellness();
+      const interval = setInterval(() => void refreshWellness(), 10_000);
+      return () => clearInterval(interval);
+    } else {
+      setWellnessSummary(null);
+      setDriverNotifications(null);
+    }
+  }, [status?.is_active, refreshWellness]);
 
   // Apply/remove the storm-active class on <html> for the dark theme
   useEffect(() => {
@@ -59,17 +103,21 @@ export function StormModeProvider({ children }: { children: ReactNode }) {
     try {
       const result = await apiActivate("manual", windowHours);
       await refresh();
+      // Start polling wellness data after a short delay
+      setTimeout(() => void refreshWellness(), 5_000);
       return result.converted_count;
     } finally {
       setLoading(false);
     }
-  }, [refresh]);
+  }, [refresh, refreshWellness]);
 
   const deactivate = useCallback(async () => {
     setLoading(true);
     try {
       await apiDeactivate();
       await refresh();
+      setWellnessSummary(null);
+      setDriverNotifications(null);
     } finally {
       setLoading(false);
     }
@@ -78,7 +126,19 @@ export function StormModeProvider({ children }: { children: ReactNode }) {
   const isActive = status?.is_active ?? false;
 
   return (
-    <StormModeContext.Provider value={{ isActive, status, loading, activate, deactivate, refresh }}>
+    <StormModeContext.Provider
+      value={{
+        isActive,
+        status,
+        loading,
+        wellnessSummary,
+        driverNotifications,
+        activate,
+        deactivate,
+        refresh,
+        refreshWellness,
+      }}
+    >
       {children}
     </StormModeContext.Provider>
   );
