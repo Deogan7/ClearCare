@@ -37,6 +37,19 @@ const STATUS_OPTIONS: Array<{ value: ReferralStatus | "all"; label: string }> =
     { value: "closed", label: "Closed" },
   ];
 
+const STATUS_ROW_COLOR: Record<ReferralStatus, string> = {
+  sent_to_specialist: "#fef3c7",      // warm amber — awaiting action
+  resent_to_specialist: "#fde68a",    // deeper amber — needs attention
+  referral_received: "#dbeafe",       // light blue — acknowledged
+  appointment_scheduling: "#e0e7ff",  // soft indigo — in progress
+  appointment_scheduled: "#c7d2fe",   // indigo — confirmed
+  patient_notified: "#d1fae5",        // light green — on track
+  completed: "#a7f3d0",              // green — done
+  missed: "#fecaca",                 // light red — action needed
+  reschedule_requested: "#fed7aa",   // light orange — pending reschedule
+  closed: "#e5e7eb",                 // neutral grey — resolved
+};
+
 type PriorityLevel = "immediate" | "high" | "standard" | "deferred";
 
 const PRIORITY_LABELS: Record<PriorityLevel, string> = {
@@ -264,7 +277,13 @@ export default function ReferralsPage() {
             ]}
           >
               {sortedReferrals.map((referral) => (
-                <tr key={referral.id}>
+                <tr
+                  key={referral.id}
+                  style={{
+                    backgroundColor: STATUS_ROW_COLOR[referral.status] + "40",
+                    borderLeft: `4px solid ${STATUS_ROW_COLOR[referral.status]}`,
+                  }}
+                >
                   <td>
                     <span style={{ display: "flex", alignItems: "center" }}>
                       {priorityDot(getPriority(referral), referral.status === "closed")}

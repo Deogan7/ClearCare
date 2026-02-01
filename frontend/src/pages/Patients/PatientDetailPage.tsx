@@ -11,11 +11,16 @@ import PatientFormModal from "./PatientFormModal";
 import PatientWorkflowStepper from "../../components/patients/PatientWorkflowStepper";
 
 const STATUS_LABELS: Record<Referral["status"], string> = {
-  pending_confirmation: "Pending",
-  scheduled: "Scheduled",
-  attended: "Attended",
-  resolved: "Resolved",
+  sent_to_specialist: "Sent to Specialist",
+  resent_to_specialist: "Resent to Specialist",
+  referral_received: "Referral Received",
+  appointment_scheduling: "Scheduling",
+  appointment_scheduled: "Scheduled",
+  patient_notified: "Patient Notified",
+  completed: "Completed",
   missed: "Missed",
+  reschedule_requested: "Reschedule Requested",
+  closed: "Closed",
 };
 
 export default function PatientDetailPage() {

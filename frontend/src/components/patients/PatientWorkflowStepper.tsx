@@ -18,9 +18,14 @@ const STEPS: Step[] = [
     caption: "Initial intake recorded",
   },
   {
-    key: "referral_sent",
+    key: "sent_to_specialist",
     label: "Sent to specialist",
     caption: "Awaiting confirmation",
+  },
+  {
+    key: "referral_received",
+    label: "Referral received",
+    caption: "Specialist confirmed receipt",
   },
   {
     key: "appointment_scheduled",
@@ -28,23 +33,33 @@ const STEPS: Step[] = [
     caption: "Visit date confirmed",
   },
   {
-    key: "visit_attended",
-    label: "Visit attended",
+    key: "patient_notified",
+    label: "Patient notified",
+    caption: "Patient aware of visit",
+  },
+  {
+    key: "completed",
+    label: "Visit completed",
     caption: "Care delivered",
   },
   {
-    key: "followup_complete",
-    label: "Follow-up complete",
-    caption: "Case closed",
+    key: "closed",
+    label: "Case closed",
+    caption: "Ticket resolved",
   },
 ];
 
 const STATUS_TO_INDEX: Record<Referral["status"], number> = {
-  pending_confirmation: 1,
-  scheduled: 2,
-  attended: 3,
-  resolved: 4,
-  missed: 2,
+  sent_to_specialist: 1,
+  resent_to_specialist: 1,
+  referral_received: 2,
+  appointment_scheduling: 3,
+  appointment_scheduled: 3,
+  patient_notified: 4,
+  completed: 5,
+  missed: 4,
+  reschedule_requested: 3,
+  closed: 6,
 };
 
 export default function PatientWorkflowStepper({ referral }: PatientWorkflowStepperProps) {

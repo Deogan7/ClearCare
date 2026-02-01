@@ -11,35 +11,55 @@ import type { Patient } from "../../types/patient";
 import type { Referral, ReferralStatus } from "../../types/referral";
 
 const STATUS_ORDER: ReferralStatus[] = [
-  "pending_confirmation",
-  "scheduled",
-  "attended",
-  "resolved",
+  "sent_to_specialist",
+  "resent_to_specialist",
+  "referral_received",
+  "appointment_scheduling",
+  "appointment_scheduled",
+  "patient_notified",
+  "completed",
   "missed",
+  "reschedule_requested",
+  "closed",
 ];
 
 const STATUS_LABELS: Record<ReferralStatus, string> = {
-  pending_confirmation: "Pending",
-  scheduled: "Scheduled",
-  attended: "Attended",
-  resolved: "Resolved",
+  sent_to_specialist: "Sent to Specialist",
+  resent_to_specialist: "Resent to Specialist",
+  referral_received: "Referral Received",
+  appointment_scheduling: "Scheduling",
+  appointment_scheduled: "Scheduled",
+  patient_notified: "Patient Notified",
+  completed: "Completed",
   missed: "Missed",
+  reschedule_requested: "Reschedule Requested",
+  closed: "Closed",
 };
 
 const STATUS_BADGE_CLASS: Record<ReferralStatus, string> = {
-  pending_confirmation: "warn",
-  scheduled: "info",
-  attended: "ok",
-  resolved: "ok",
+  sent_to_specialist: "warn",
+  resent_to_specialist: "warn",
+  referral_received: "info",
+  appointment_scheduling: "info",
+  appointment_scheduled: "info",
+  patient_notified: "ok",
+  completed: "ok",
   missed: "danger",
+  reschedule_requested: "warn",
+  closed: "ok",
 };
 
 const STATUS_TRANSITIONS: Record<ReferralStatus, ReferralStatus[]> = {
-  pending_confirmation: ["scheduled"],
-  scheduled: ["attended", "missed"],
-  attended: ["resolved"],
-  resolved: [],
-  missed: [],
+  sent_to_specialist: ["resent_to_specialist", "referral_received"],
+  resent_to_specialist: ["referral_received"],
+  referral_received: ["appointment_scheduling"],
+  appointment_scheduling: ["appointment_scheduled"],
+  appointment_scheduled: ["patient_notified"],
+  patient_notified: ["completed", "missed"],
+  completed: ["closed"],
+  missed: ["reschedule_requested"],
+  reschedule_requested: ["appointment_scheduling"],
+  closed: [],
 };
 
 const toDateInputValue = (value: string | null) => {
