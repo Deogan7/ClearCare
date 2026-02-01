@@ -10,21 +10,31 @@ import type { Referral, ReferralStatus } from "../../types/referral";
 import ReferralFormModal from "./ReferralFormModal";
 
 const STATUS_LABELS: Record<ReferralStatus, string> = {
-  pending_confirmation: "Pending",
-  scheduled: "Scheduled",
-  attended: "Attended",
-  resolved: "Resolved",
+  sent_to_specialist: "Sent to Specialist",
+  resent_to_specialist: "Resent to Specialist",
+  referral_received: "Referral Received",
+  appointment_scheduling: "Scheduling",
+  appointment_scheduled: "Scheduled",
+  patient_notified: "Patient Notified",
+  completed: "Completed",
   missed: "Missed",
+  reschedule_requested: "Reschedule Requested",
+  closed: "Closed",
 };
 
 const STATUS_OPTIONS: Array<{ value: ReferralStatus | "all"; label: string }> =
   [
     { value: "all", label: "All statuses" },
-    { value: "pending_confirmation", label: "Pending" },
-    { value: "scheduled", label: "Scheduled" },
-    { value: "attended", label: "Attended" },
-    { value: "resolved", label: "Resolved" },
+    { value: "sent_to_specialist", label: "Sent to Specialist" },
+    { value: "resent_to_specialist", label: "Resent to Specialist" },
+    { value: "referral_received", label: "Referral Received" },
+    { value: "appointment_scheduling", label: "Scheduling" },
+    { value: "appointment_scheduled", label: "Scheduled" },
+    { value: "patient_notified", label: "Patient Notified" },
+    { value: "completed", label: "Completed" },
     { value: "missed", label: "Missed" },
+    { value: "reschedule_requested", label: "Reschedule Requested" },
+    { value: "closed", label: "Closed" },
   ];
 
 type PriorityLevel = "immediate" | "high" | "standard" | "deferred";
@@ -152,10 +162,10 @@ export default function ReferralsPage() {
 
   const sortedReferrals = useMemo(() => {
     const activeReferrals = filteredReferrals.filter(
-      (referral) => referral.status !== "resolved"
+      (referral) => referral.status !== "closed"
     );
     const resolvedReferrals = filteredReferrals.filter(
-      (referral) => referral.status === "resolved"
+      (referral) => referral.status === "closed"
     );
     const sortByPriority = (items: Referral[]) =>
       [...items].sort((a, b) => {
@@ -257,7 +267,7 @@ export default function ReferralsPage() {
                 <tr key={referral.id}>
                   <td>
                     <span style={{ display: "flex", alignItems: "center" }}>
-                      {priorityDot(getPriority(referral), referral.status === "resolved")}
+                      {priorityDot(getPriority(referral), referral.status === "closed")}
                       <span className="page-subtitle">
                         {PRIORITY_LABELS[getPriority(referral)]}
                       </span>
