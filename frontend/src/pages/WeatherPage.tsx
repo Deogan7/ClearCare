@@ -7,15 +7,19 @@ import Skeleton from "../components/common/Skeleton";
 import CurrentWeatherCard from "../components/weather/CurrentWeatherCard";
 import StormStatusCard from "../components/weather/StormStatusCard";
 import WeatherAlertsList from "../components/weather/WeatherAlertsList";
+import StormModeModal from "../components/storm/StormModeModal";
+import { useStormMode } from "../context/StormModeContext";
 import { getCurrentWeather, getStormStatus } from "../services/weatherService";
 import type { CurrentWeatherResponse, StormStatusResponse } from "../types/weather";
 
 export default function WeatherPage() {
+  const { isActive: stormModeActive } = useStormMode();
   const [current, setCurrent] = useState<CurrentWeatherResponse | null>(null);
   const [status, setStatus] = useState<StormStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [stormModalOpen, setStormModalOpen] = useState(false);
 
   const loadWeather = useCallback(async () => {
     setLoading(true);
@@ -47,9 +51,17 @@ export default function WeatherPage() {
           title="Weather"
           subtitle="Monitor Storm Mode thresholds and alerts."
           actions={
-            <Button variant="secondary" onClick={loadWeather} disabled={loading}>
-              {loading ? "Refreshing..." : "Refresh"}
-            </Button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                variant={stormModeActive ? "danger" : "primary"}
+                onClick={() => setStormModalOpen(true)}
+              >
+                {stormModeActive ? "Storm Mode Active" : "Activate Storm Mode"}
+              </Button>
+              <Button variant="secondary" onClick={loadWeather} disabled={loading}>
+                {loading ? "Refreshing..." : "Refresh"}
+              </Button>
+            </div>
           }
         />
         {lastUpdated ? (
@@ -91,6 +103,7 @@ export default function WeatherPage() {
         </div>
         {!loading && status ? <WeatherAlertsList alerts={status.alerts ?? []} /> : null}
       </div>
+      <StormModeModal open={stormModalOpen} onClose={() => setStormModalOpen(false)} />
     </AppShell>
   );
 }
