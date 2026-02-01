@@ -14,6 +14,7 @@ def start_scheduler() -> None:
     """Register all periodic jobs and start the scheduler."""
     from app.tasks.weather_poller import poll_weather
     from app.tasks.safety_net import check_safety_net
+    from app.tasks.workflow_engine import run_workflow_engine
 
     # Poll weather every 30 minutes.
     scheduler.add_job(
@@ -28,6 +29,14 @@ def start_scheduler() -> None:
         check_safety_net,
         trigger=IntervalTrigger(hours=1),
         id="safety_net_check",
+        replace_existing=True,
+    )
+
+    # Run the referral workflow engine every 15 minutes.
+    scheduler.add_job(
+        run_workflow_engine,
+        trigger=IntervalTrigger(minutes=15),
+        id="workflow_engine",
         replace_existing=True,
     )
 

@@ -1,21 +1,21 @@
-"""Safety Net task — catches referrals that haven't been attended within the configured window.
+"""Safety Net task — catches referrals that have been in PATIENT_NOTIFIED
+but the appointment date is far past, indicating they may have been missed.
 
-Per the TRD: if a ticket is not marked as Attended within 48 hours of its scheduled date,
-the system triggers a high-priority alert to the nurse and an automated follow-up call via Vapi.
+If the workflow engine hasn't already triggered a post-appointment call,
+the safety net acts as a fallback to ensure no referral slips through.
 """
 
 import logging
 
 from app.db.session import async_session
-from app.models.referral import ReferralStatus
-from app.services.referral_service import get_overdue_referrals, transition_status
-from app.services.voice_service import initiate_patient_follow_up_call
+from app.services.referral_service import get_overdue_referrals
+from app.services.voice_service import call_patient_post_appointment
 
 logger = logging.getLogger(__name__)
 
 
 async def check_safety_net() -> None:
-    """Scan for overdue referrals and trigger alerts + automated calls."""
+    """Scan for overdue referrals and trigger follow-up calls."""
     try:
         async with async_session() as db:
             overdue = await get_overdue_referrals(db)
@@ -27,20 +27,18 @@ async def check_safety_net() -> None:
             logger.warning("Safety net: %d overdue referral(s) found.", len(overdue))
 
             for referral in overdue:
-                # Transition to MISSED so it shows up as a high-priority alert.
+                logger.info(
+                    "Safety net: referral %s overdue (scheduled for %s). Triggering follow-up.",
+                    referral.ticket_id,
+                    referral.scheduled_date,
+                )
                 try:
-                    await transition_status(db, referral, ReferralStatus.MISSED)
-                    logger.info(
-                        "Referral %s marked as MISSED (was scheduled for %s).",
+                    await call_patient_post_appointment(referral)
+                except Exception:
+                    logger.exception(
+                        "Safety net: failed to call patient for referral %s.",
                         referral.ticket_id,
-                        referral.scheduled_date,
                     )
-                except ValueError:
-                    # Already transitioned by another process.
-                    pass
-
-                # Trigger an automated Vapi follow-up call to the patient.
-                await initiate_patient_follow_up_call(referral)
 
     except Exception:
         logger.exception("Safety net check failed")

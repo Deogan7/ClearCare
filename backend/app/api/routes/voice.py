@@ -11,65 +11,215 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.patient import Patient
 from app.models.user import User
-from app.models.referral import Referral, ReferralStatus
-from app.schemas.voice import VerifyReferralRequest, VoiceCallResponse, WebhookResult
+from app.models.referral import Referral, ReferralStatus, AppointmentType
+from app.schemas.voice import (
+    VerifyReferralRequest, VoiceCallResponse, WebhookResult, DemoCallRequest,
+)
 from app.services import referral_service, voice_service
 
 router = APIRouter()
 
+# ---------------------------------------------------------------------------
 # Transcript keyword sets for webhook NLP
+# ---------------------------------------------------------------------------
 
-_CONFIRMATION_KEYWORDS = [
-    "received",
-    "confirmed",
-    "yes we have",
-    "got it",
-    "we have the documents",
-    "can confirm",
+_YES_KEYWORDS = [
+    "received", "confirmed", "yes we have", "got it",
+    "we have the documents", "can confirm", "yes", "that's correct",
+    "we got it", "it's here", "affirmative",
+]
+
+_NO_KEYWORDS = [
+    "no", "haven't received", "don't have", "not yet",
+    "we haven't", "nothing here", "no record",
+]
+
+_SCHEDULED_KEYWORDS = [
+    "scheduled", "booked", "appointment is set", "confirmed appointment",
+    "yes it's scheduled", "appointment has been", "booked for",
+]
+
+_IN_PERSON_KEYWORDS = [
+    "in person", "in-person", "come in", "physical visit",
+    "at the office", "at the clinic",
+]
+
+_VIRTUAL_KEYWORDS = [
+    "virtual", "telehealth", "video call", "online",
+    "remote", "phone appointment",
+]
+
+_ATTENDED_KEYWORDS = [
+    "yes i attended", "i went", "i was there", "yes i did",
+    "it went well", "i made it", "attended", "yes",
 ]
 
 _MISSED_KEYWORDS = [
-    "missed",
-    "couldn't make it",
-    "didn't attend",
-    "no show",
-    "wasn't able",
-    "could not make",
+    "missed", "couldn't make it", "didn't attend", "no show",
+    "wasn't able", "could not make", "didn't go", "no",
 ]
 
 _RESCHEDULE_KEYWORDS = [
-    "reschedule",
-    "new appointment",
-    "different time",
-    "change the date",
-    "move it",
-    "book another",
+    "reschedule", "new appointment", "different time",
+    "change the date", "move it", "book another", "yes please reschedule",
+]
+
+_NO_RESCHEDULE_KEYWORDS = [
+    "no reschedule", "don't reschedule", "no thank you",
+    "talk to my doctor", "see my local doctor", "no thanks",
+]
+
+_RIDE_YES_KEYWORDS = [
+    "yes", "need a ride", "transportation", "please arrange",
+    "that would be great", "yes please",
+]
+
+_RIDE_NO_KEYWORDS = [
+    "no", "i'm fine", "i have a ride", "no thanks",
+    "i can get there", "don't need",
 ]
 
 
-def _analyze_transcript(transcript: str, call_type: str | None) -> str:
-    """Basic keyword matching on a call transcript to determine intent."""
-    text = transcript.lower()
+def _match_keywords(text: str, keywords: list[str]) -> bool:
+    text_lower = text.lower()
+    return any(kw in text_lower for kw in keywords)
 
-    # For verification calls, check confirmation first
-    if call_type == "referral_verification":
-        for kw in _CONFIRMATION_KEYWORDS:
-            if kw in text:
-                return "confirmed"
 
-    for kw in _RESCHEDULE_KEYWORDS:
-        if kw in text:
-            return "reschedule"
-
-    for kw in _MISSED_KEYWORDS:
-        if kw in text:
-            return "missed"
-
+def _analyze_specialist_receipt(transcript: str) -> str:
+    if _match_keywords(transcript, _YES_KEYWORDS):
+        return "yes"
+    if _match_keywords(transcript, _NO_KEYWORDS):
+        return "no"
     return "unknown"
 
 
-# POST /api/voice/verify-referral/{ticket_id}
+def _analyze_appointment_scheduled(transcript: str) -> dict:
+    result = {"scheduled": False, "appointment_type": None}
+    if _match_keywords(transcript, _SCHEDULED_KEYWORDS):
+        result["scheduled"] = True
+        if _match_keywords(transcript, _IN_PERSON_KEYWORDS):
+            result["appointment_type"] = "in_person"
+        elif _match_keywords(transcript, _VIRTUAL_KEYWORDS):
+            result["appointment_type"] = "virtual"
+    return result
 
+
+def _analyze_patient_notification(transcript: str) -> dict:
+    result = {"ride_needed": None, "appointment_type": None}
+    if _match_keywords(transcript, _RIDE_YES_KEYWORDS):
+        result["ride_needed"] = True
+    elif _match_keywords(transcript, _RIDE_NO_KEYWORDS):
+        result["ride_needed"] = False
+    if _match_keywords(transcript, _IN_PERSON_KEYWORDS):
+        result["appointment_type"] = "in_person"
+    elif _match_keywords(transcript, _VIRTUAL_KEYWORDS):
+        result["appointment_type"] = "virtual"
+    return result
+
+
+def _analyze_post_appointment(transcript: str) -> str:
+    if _match_keywords(transcript, _ATTENDED_KEYWORDS):
+        return "attended"
+    if _match_keywords(transcript, _MISSED_KEYWORDS):
+        return "missed"
+    return "unknown"
+
+
+def _analyze_reschedule(transcript: str) -> str:
+    if _match_keywords(transcript, _RESCHEDULE_KEYWORDS):
+        return "yes"
+    if _match_keywords(transcript, _NO_RESCHEDULE_KEYWORDS):
+        return "no"
+    return "unknown"
+
+
+# ---------------------------------------------------------------------------
+# DEMO endpoint — simplified 2-call flow for live presentations
+# ---------------------------------------------------------------------------
+# Step 1: SENT_TO_SPECIALIST → (calls your phone as "specialist") → REFERRAL_RECEIVED
+# Step 2: REFERRAL_RECEIVED  → (calls your phone as "patient")    → COMPLETED → CLOSED
+# ---------------------------------------------------------------------------
+
+@router.post("/demo/{ticket_id}", response_model=VoiceCallResponse)
+async def demo_call(
+    ticket_id: str,
+    body: DemoCallRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Trigger a demo call. Step 1 = specialist verification, Step 2 = patient follow-up.
+
+    Both calls go to the phone number you provide so you can play both roles.
+    """
+    referral = await referral_service.get_referral_by_ticket_id(db, ticket_id)
+    if not referral:
+        raise HTTPException(status_code=404, detail=f"Referral {ticket_id} not found")
+
+    patient = referral.patient
+    patient_name = f"{patient.first_name} {patient.last_name}" if patient else "the patient"
+
+    if body.step == 1:
+        # --- Demo Step 1: Call "specialist" to verify receipt ---
+        first_message = (
+            f"Hello, this is RidgeCare Link calling on behalf of Clearwater Ridge Medical Clinic. "
+            f"We sent a referral for {patient_name}, ticket number {referral.ticket_id}, "
+            f"to {referral.referred_to}. Can you confirm whether you have received this referral?"
+        )
+        try:
+            result = await voice_service._make_vapi_call(
+                phone_number=body.phone,
+                first_message=first_message,
+                system_prompt=voice_service.SPECIALIST_VERIFY_PROMPT,
+                metadata={
+                    "ticket_id": referral.ticket_id,
+                    "call_type": "demo_specialist_verify",
+                },
+            )
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=502, detail=f"Vapi API error {exc.response.status_code}: {exc.response.text}")
+
+        await referral_service.record_call_attempt(db, referral)
+        return VoiceCallResponse(
+            call_id=result.get("id"),
+            status="initiated",
+            message=f"Demo Step 1: Calling {body.phone} as specialist for {ticket_id}",
+            ticket_id=ticket_id,
+        )
+
+    elif body.step == 2:
+        # --- Demo Step 2: Call "patient" for post-appointment follow-up ---
+        first_message = (
+            f"Hello {patient_name}, this is RidgeCare Link. "
+            f"We're following up on your recent specialist appointment with {referral.referred_to}. "
+            f"Were you able to attend the appointment?"
+        )
+        try:
+            result = await voice_service._make_vapi_call(
+                phone_number=body.phone,
+                first_message=first_message,
+                system_prompt=voice_service.PATIENT_POST_APPOINTMENT_PROMPT,
+                metadata={
+                    "ticket_id": referral.ticket_id,
+                    "call_type": "demo_patient_followup",
+                },
+            )
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=502, detail=f"Vapi API error {exc.response.status_code}: {exc.response.text}")
+
+        return VoiceCallResponse(
+            call_id=result.get("id"),
+            status="initiated",
+            message=f"Demo Step 2: Calling {body.phone} as patient for {ticket_id}",
+            ticket_id=ticket_id,
+        )
+
+    else:
+        raise HTTPException(status_code=422, detail="step must be 1 or 2")
+
+
+# ---------------------------------------------------------------------------
+# Manual trigger endpoints (full workflow)
+# ---------------------------------------------------------------------------
 
 @router.post("/verify-referral/{ticket_id}", response_model=VoiceCallResponse)
 async def trigger_verification_call(
@@ -78,7 +228,7 @@ async def trigger_verification_call(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Trigger an outbound Vapi call to verify a referral was received."""
+    """Manually trigger a call to specialist to verify referral receipt."""
     referral = await referral_service.get_referral_by_ticket_id(db, ticket_id)
     if not referral:
         raise HTTPException(status_code=404, detail=f"Referral {ticket_id} not found")
@@ -86,10 +236,7 @@ async def trigger_verification_call(
     try:
         result = await voice_service.verify_referral_receipt(referral, body.admin_phone)
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Vapi API error: {exc.response.status_code}",
-        )
+        raise HTTPException(status_code=502, detail=f"Vapi API error: {exc.response.status_code}")
 
     return VoiceCallResponse(
         call_id=result.get("id"),
@@ -99,7 +246,57 @@ async def trigger_verification_call(
     )
 
 
-# POST /api/voice/patient-checkin/{patient_id}
+@router.post("/trigger-workflow-call/{ticket_id}", response_model=VoiceCallResponse)
+async def trigger_workflow_call(
+    ticket_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually trigger the next appropriate call in the workflow for a referral."""
+    referral = await referral_service.get_referral_by_ticket_id(db, ticket_id)
+    if not referral:
+        raise HTTPException(status_code=404, detail=f"Referral {ticket_id} not found")
+
+    call_fn = None
+    msg = ""
+
+    if referral.status in (ReferralStatus.SENT_TO_SPECIALIST, ReferralStatus.RESENT_TO_SPECIALIST):
+        call_fn = voice_service.call_specialist_verify_receipt
+        msg = "Specialist receipt verification call initiated"
+    elif referral.status in (ReferralStatus.REFERRAL_RECEIVED, ReferralStatus.APPOINTMENT_SCHEDULING):
+        call_fn = voice_service.call_specialist_check_appointment
+        msg = "Specialist appointment check call initiated"
+    elif referral.status == ReferralStatus.APPOINTMENT_SCHEDULED:
+        call_fn = voice_service.call_patient_appointment_notification
+        msg = "Patient appointment notification call initiated"
+    elif referral.status == ReferralStatus.PATIENT_NOTIFIED:
+        call_fn = voice_service.call_patient_post_appointment
+        msg = "Post-appointment follow-up call initiated"
+    elif referral.status == ReferralStatus.MISSED:
+        call_fn = voice_service.call_patient_missed_reschedule
+        msg = "Missed appointment reschedule call initiated"
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail=f"No call action available for status '{referral.status.value}'",
+        )
+
+    try:
+        result = await call_fn(referral)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail=f"Vapi API error: {exc.response.status_code}")
+
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to initiate call — missing phone or patient data")
+
+    await referral_service.record_call_attempt(db, referral)
+
+    return VoiceCallResponse(
+        call_id=result.get("id"),
+        status="initiated",
+        message=f"{msg} for {ticket_id}",
+        ticket_id=ticket_id,
+    )
 
 
 @router.post("/patient-checkin/{patient_id}", response_model=VoiceCallResponse)
@@ -109,20 +306,20 @@ async def trigger_patient_checkin(
     current_user: User = Depends(get_current_user),
 ):
     """Trigger a follow-up call to a patient about their most urgent referral."""
-    # Look up patient
-    patient_result = await db.execute(
-        select(Patient).where(Patient.id == patient_id)
-    )
+    patient_result = await db.execute(select(Patient).where(Patient.id == patient_id))
     patient = patient_result.scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
 
-    # Find their active referrals (scheduled or missed), eager-load patient
     referral_result = await db.execute(
         select(Referral)
         .where(
             Referral.patient_id == patient_id,
-            Referral.status.in_([ReferralStatus.SCHEDULED, ReferralStatus.MISSED]),
+            Referral.status.in_([
+                ReferralStatus.APPOINTMENT_SCHEDULED,
+                ReferralStatus.PATIENT_NOTIFIED,
+                ReferralStatus.MISSED,
+            ]),
         )
         .options(selectinload(Referral.patient))
         .order_by(Referral.scheduled_date.asc())
@@ -130,27 +327,17 @@ async def trigger_patient_checkin(
     referrals = list(referral_result.scalars().all())
 
     if not referrals:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No active referrals found for patient {patient_id}",
-        )
+        raise HTTPException(status_code=404, detail=f"No active referrals for patient {patient_id}")
 
-    # Call about the most urgent (earliest) referral
     referral = referrals[0]
 
     try:
-        result = await voice_service.initiate_patient_follow_up_call(referral)
+        result = await voice_service.call_patient_post_appointment(referral)
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Vapi API error: {exc.response.status_code}",
-        )
+        raise HTTPException(status_code=502, detail=f"Vapi API error {exc.response.status_code}: {exc.response.text}")
 
     if not result:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to initiate call — patient data missing on referral",
-        )
+        raise HTTPException(status_code=500, detail="Failed to initiate call — patient data missing")
 
     return VoiceCallResponse(
         call_id=result.get("id"),
@@ -163,7 +350,9 @@ async def trigger_patient_checkin(
     )
 
 
-# POST /api/voice/webhook
+# ---------------------------------------------------------------------------
+# Webhook — processes ALL call types from Vapi (including demo calls)
+# ---------------------------------------------------------------------------
 
 @router.post("/webhook", response_model=WebhookResult)
 async def vapi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
@@ -173,13 +362,14 @@ async def vapi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     message = payload.get("message", {})
     msg_type = message.get("type")
 
-    # Only acting on completed call reports
     if msg_type != "end-of-call-report":
         return WebhookResult(status="ignored", note=f"Unhandled message type: {msg_type}")
 
-    # Pull the metadata that we attached when placing the call
     call_data = message.get("call", {})
-    metadata = call_data.get("metadata", {})
+    # Vapi may put metadata at call level or nested — check both
+    metadata = call_data.get("metadata", {}) or {}
+    if not metadata.get("ticket_id"):
+        metadata = message.get("metadata", {}) or {}
     ticket_id = metadata.get("ticket_id")
     call_type = metadata.get("call_type")
     transcript = message.get("transcript", "")
@@ -189,30 +379,164 @@ async def vapi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     if not ticket_id:
         return WebhookResult(status="ignored", note="No ticket_id in call metadata")
 
-    # Look up the referral
     referral = await referral_service.get_referral_by_ticket_id(db, ticket_id)
     if not referral:
-        return WebhookResult(
-            status="error", ticket_id=ticket_id, note=f"Referral {ticket_id} not found"
-        )
+        return WebhookResult(status="error", ticket_id=ticket_id, note=f"Referral {ticket_id} not found")
 
-    # Determine intent from transcript
-    action = _analyze_transcript(transcript, call_type)
+    action = "unknown"
+    note = ""
 
-    # Apply state transition and build note
-    if action == "confirmed" and referral.status == ReferralStatus.PENDING_CONFIRMATION:
-        await referral_service.transition_status(db, referral, ReferralStatus.SCHEDULED)
-        note = "[Voice] Referral receipt confirmed via verification call."
-    elif action == "missed":
-        reason = summary or "not provided"
-        note = f"[Voice] Patient reported missed appointment. Reason: {reason}"
-    elif action == "reschedule":
-        note = "[Voice] Patient requested reschedule. Flagged for nurse follow-up."
+    # =======================================================================
+    # DEMO CALL TYPES — simplified transitions for live presentations
+    # These bypass the state machine and set status directly.
+    # =======================================================================
+
+    if call_type == "demo_specialist_verify":
+        result = _analyze_specialist_receipt(transcript)
+        if result == "yes":
+            referral.status = ReferralStatus.REFERRAL_RECEIVED
+            await db.commit()
+            action = "demo_referral_received"
+            note = "[Demo] Specialist confirmed receipt. Status → REFERRAL_RECEIVED. Ready for Step 2."
+        elif result == "no":
+            referral.status = ReferralStatus.RESENT_TO_SPECIALIST
+            await db.commit()
+            action = "demo_not_received"
+            note = "[Demo] Specialist hasn't received referral. Status → RESENT_TO_SPECIALIST. Try Step 1 again."
+        else:
+            action = "demo_unclear"
+            note = f"[Demo] Specialist response unclear. Try Step 1 again. Transcript: {transcript[:200]}"
+
+    elif call_type == "demo_patient_followup":
+        result = _analyze_post_appointment(transcript)
+        if result == "attended":
+            referral.status = ReferralStatus.COMPLETED
+            await db.commit()
+            referral.status = ReferralStatus.CLOSED
+            await db.commit()
+            action = "demo_completed"
+            note = "[Demo] Patient confirmed attendance. Status → COMPLETED → CLOSED. Demo complete!"
+        elif result == "missed":
+            referral.status = ReferralStatus.MISSED
+            await db.commit()
+            action = "demo_missed"
+            note = "[Demo] Patient reported missed appointment. Status → MISSED."
+        else:
+            action = "demo_unclear"
+            note = f"[Demo] Patient response unclear. Try Step 2 again. Transcript: {transcript[:200]}"
+
+    # =======================================================================
+    # PRODUCTION CALL TYPES — full state machine with validation
+    # =======================================================================
+
+    elif call_type == "specialist_verify_receipt":
+        result = _analyze_specialist_receipt(transcript)
+        if result == "yes":
+            await referral_service.transition_status(db, referral, ReferralStatus.REFERRAL_RECEIVED)
+            await referral_service.schedule_next_follow_up(db, referral, hours=48)
+            action = "referral_received"
+            note = "[Voice] Specialist confirmed referral receipt. Ticket updated to REFERRAL_RECEIVED."
+        elif result == "no":
+            await referral_service.transition_status(db, referral, ReferralStatus.RESENT_TO_SPECIALIST)
+            await referral_service.schedule_next_follow_up(db, referral, business_days=5)
+            action = "not_received"
+            note = "[Voice] Specialist has NOT received referral. Resending. Next follow-up in 5 business days."
+        else:
+            await referral_service.schedule_next_follow_up(db, referral, hours=24)
+            action = "unclear"
+            note = f"[Voice] Specialist call unclear. Will retry. Summary: {summary or 'none'}"
+
+    elif call_type == "specialist_appointment_check":
+        result = _analyze_appointment_scheduled(transcript)
+        if result["scheduled"]:
+            await referral_service.transition_status(db, referral, ReferralStatus.APPOINTMENT_SCHEDULED)
+            if result["appointment_type"] == "in_person":
+                referral.appointment_type = AppointmentType.IN_PERSON
+            elif result["appointment_type"] == "virtual":
+                referral.appointment_type = AppointmentType.VIRTUAL
+            await db.commit()
+            action = "appointment_scheduled"
+            note = f"[Voice] Specialist appointment scheduled ({result['appointment_type'] or 'type TBD'})."
+        else:
+            if referral.status == ReferralStatus.REFERRAL_RECEIVED:
+                await referral_service.transition_status(db, referral, ReferralStatus.APPOINTMENT_SCHEDULING)
+            await referral_service.schedule_next_follow_up(db, referral, business_days=2)
+            action = "not_scheduled_yet"
+            note = "[Voice] Appointment not yet scheduled. Will follow up in 2 business days."
+
+    elif call_type == "patient_appointment_notify":
+        result = _analyze_patient_notification(transcript)
+        await referral_service.transition_status(db, referral, ReferralStatus.PATIENT_NOTIFIED)
+
+        if result["appointment_type"] == "in_person":
+            referral.appointment_type = AppointmentType.IN_PERSON
+        elif result["appointment_type"] == "virtual":
+            referral.appointment_type = AppointmentType.VIRTUAL
+
+        if result["ride_needed"] is True:
+            referral.ride_needed = True
+            note = "[Voice] Patient notified. Ride requested — scheduling transportation."
+        elif result["ride_needed"] is False:
+            referral.ride_needed = False
+            note = "[Voice] Patient notified. No ride needed."
+        else:
+            note = "[Voice] Patient notified about appointment."
+
+        if referral.scheduled_date:
+            from app.services.referral_service import _add_business_days
+            referral.next_follow_up_at = _add_business_days(referral.scheduled_date, 1)
+        else:
+            await referral_service.schedule_next_follow_up(db, referral, business_days=1)
+
+        await db.commit()
+        action = "patient_notified"
+
+    elif call_type == "patient_post_appointment":
+        result = _analyze_post_appointment(transcript)
+        if result == "attended":
+            await referral_service.transition_status(db, referral, ReferralStatus.COMPLETED)
+            await referral_service.transition_status(db, referral, ReferralStatus.CLOSED)
+            action = "completed"
+            note = "[Voice] Patient confirmed attendance. Ticket CLOSED."
+        elif result == "missed":
+            await referral_service.transition_status(db, referral, ReferralStatus.MISSED)
+            action = "missed"
+            note = "[Voice] Patient reported missed appointment. Asking about reschedule."
+        else:
+            action = "unclear"
+            note = f"[Voice] Post-appointment call unclear. Summary: {summary or 'none'}"
+
+    elif call_type == "patient_missed_reschedule":
+        result = _analyze_reschedule(transcript)
+        if result == "yes":
+            await referral_service.transition_status(db, referral, ReferralStatus.RESCHEDULE_REQUESTED)
+            await referral_service.transition_status(db, referral, ReferralStatus.SENT_TO_SPECIALIST)
+            await referral_service.schedule_next_follow_up(db, referral, hours=48)
+            referral.specialist_call_attempts = 0
+            await db.commit()
+            action = "reschedule_yes"
+            note = "[Voice] Patient wants to reschedule. Restarting referral workflow."
+        elif result == "no":
+            await referral_service.transition_status(db, referral, ReferralStatus.CLOSED)
+            action = "reschedule_no"
+            note = "[Voice] Patient declined reschedule. Ticket CLOSED. Suggested local doctor follow-up."
+        else:
+            action = "unclear"
+            note = f"[Voice] Reschedule response unclear. Summary: {summary or 'none'}"
+
+    elif call_type == "storm_reschedule":
+        if _match_keywords(transcript, _YES_KEYWORDS):
+            referral.appointment_type = AppointmentType.VIRTUAL
+            await db.commit()
+            action = "storm_reschedule_accepted"
+            note = "[Voice] Patient accepted virtual care switch due to weather."
+        else:
+            action = "storm_reschedule_declined"
+            note = "[Voice] Patient declined weather reschedule."
+
     else:
-        note = (
-            f"[Voice] Call completed ({ended_reason}). "
-            f"Summary: {summary or 'none'}"
-        )
+        action = "unknown"
+        note = f"[Voice] Call completed ({ended_reason}). Type: {call_type}. Summary: {summary or 'none'}"
 
     # Append timestamped note to the referral
     existing = referral.notes or ""
