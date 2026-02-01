@@ -749,19 +749,48 @@
 
 @media (max-width: 960px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: 200px 1fr;
   }
 
   .sidebar {
-    position: relative;
-    height: auto;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+    padding: var(--space-5) var(--space-4);
+    gap: var(--space-4);
   }
 
-  .nav-list {
-    flex-direction: row;
-    flex-wrap: wrap;
+  .sidebar-title {
+    font-size: 18px;
+  }
+
+  .sidebar-subtitle {
+    font-size: 11px;
+  }
+
+  .nav-link {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    grid-template-columns: 140px 1fr;
+  }
+
+  .sidebar {
+    padding: var(--space-4) var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .sidebar-title {
+    font-size: 15px;
+  }
+
+  .sidebar-subtitle {
+    display: none;
+  }
+
+  .nav-link {
+    padding: 7px 8px;
+    font-size: 12px;
   }
 }
