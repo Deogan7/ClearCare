@@ -12,6 +12,8 @@ from app.models.patient import Patient
 from app.models.referral import Referral, ReferralStatus
 from app.schemas.referral import ReferralCreate, ReferralUpdate
 
+logger = __import__("logging").getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # Full workflow state machine
@@ -87,6 +89,9 @@ def _add_business_days(start: datetime, days: int) -> datetime:
 
 async def create_referral(db: AsyncSession, data: ReferralCreate) -> Referral:
     now = datetime.utcnow()
+    # In demo mode the first call fires immediately from the route handler,
+    # so set next_follow_up_at to now (scheduler backup).  Production: 48 hours.
+    follow_up_delay = timedelta(minutes=1) if settings.DEMO_MODE else timedelta(hours=48)
     referral = Referral(
         ticket_id=_generate_ticket_id(),
         patient_id=data.patient_id,
@@ -99,8 +104,7 @@ async def create_referral(db: AsyncSession, data: ReferralCreate) -> Referral:
         created_by=data.created_by,
         status=ReferralStatus.SENT_TO_SPECIALIST,
         specialist_call_attempts=0,
-        # First AI call to specialist 48h after creation
-        next_follow_up_at=now + timedelta(hours=48),
+        next_follow_up_at=now + follow_up_delay,
     )
     db.add(referral)
     await db.commit()
@@ -223,6 +227,10 @@ async def schedule_next_follow_up(
         referral.next_follow_up_at = _add_business_days(now, business_days)
     elif hours > 0:
         referral.next_follow_up_at = now + timedelta(hours=hours)
+    elif business_days == 0 and hours == 0:
+        # Both zero: set to now so the scheduler picks it up on the very next tick.
+        # This is used in DEMO_MODE for instant chaining.
+        referral.next_follow_up_at = now
     else:
         referral.next_follow_up_at = None
     await db.commit()
