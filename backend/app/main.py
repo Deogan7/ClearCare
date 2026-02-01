@@ -10,7 +10,7 @@ from starlette.responses import Response
 
 from app.core.middleware import HTTPSRedirectMiddleware
 
-from app.api.routes import auth, referrals, weather, voice, patients, facilities, storm_mode
+from app.api.routes import auth, referrals, weather, voice, patients, facilities, storm_mode, appointments
 from app.core.config import settings
 from app.db.session import engine
 from app.models import base
@@ -73,6 +73,7 @@ app.include_router(weather.router, prefix="/api/weather", tags=["weather"])
 app.include_router(voice.router, prefix="/api/voice", tags=["voice"])
 app.include_router(facilities.router, prefix="/api/facilities", tags=["facilities"])
 app.include_router(storm_mode.router, prefix="/api/storm-mode", tags=["storm-mode"])
+app.include_router(appointments.router, prefix="/api/appointments", tags=["appointments"])
 
 
 @app.get("/", include_in_schema=False)

@@ -1,6 +1,7 @@
 """Vapi AI integration — all outbound call types for the referral workflow."""
 
 import logging
+import uuid
 
 import httpx
 
@@ -386,5 +387,68 @@ async def initiate_reschedule_call(
             "ticket_id": referral.ticket_id,
             "call_type": "storm_reschedule",
             "weather": condition.description,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Storm Wellness Check — proactive call to high-risk patients during storms
+# ---------------------------------------------------------------------------
+
+def _build_storm_wellness_check_prompt(patient_name: str) -> str:
+    return f"""{_SARAH_PERSONALITY}
+
+You're calling {patient_name} because there's a big storm hitting the area. You're genuinely \
+worried about them and want to make sure they're okay. Start by saying hi, using their name, \
+and asking how they're doing. Wait for them to respond.
+
+Then naturally bring it up: "So I'm sure you've noticed the weather out there — it's pretty \
+rough. I just wanted to check in on you and make sure you're doing alright."
+
+After they respond, you need to find out three things, but do it naturally — like a caring \
+friend, not a checklist:
+
+1. How they're feeling physically: "How are you feeling health-wise? Any chest pain, \
+shortness of breath, dizziness, anything like that?" If they mention ANY symptoms, take \
+it seriously: "Okay, I'm really glad you told me that. I'm going to make a note of it \
+and we'll make sure someone follows up with you on that."
+
+2. Medication supply: "And your medications — do you have enough to last you through the \
+storm? Like at least a week's worth?" If they're running low: "Okay no worries, we're \
+going to figure that out for you. We'll make sure you get what you need."
+
+3. If they need anything else: "Is there anything else you need? Like groceries, or \
+would you like someone to come check on you in person?" If yes: "Absolutely, we'll \
+get that arranged for you."
+
+Wrap up warmly: "Alright {patient_name}, you hang tight okay? We're keeping an eye on things \
+and we're here if you need anything at all. Don't hesitate to call us. Stay safe and warm!"
+
+Be patient, warm, and genuinely caring. These are elderly patients who might be scared \
+or lonely during the storm. Take your time."""
+
+
+async def call_patient_wellness_check(
+    patient: Patient,
+    storm_event_id: uuid.UUID,
+    phone_override: str | None = None,
+) -> dict:
+    """Call a high-risk patient for a storm wellness check.
+
+    In DEMO_MODE a *phone_override* can redirect the call to the presenter's
+    handset so the audience hears the live conversation.
+    """
+    phone = phone_override or patient.phone
+    if not phone:
+        logger.error("Patient %s has no phone number for wellness check.", patient.id)
+        return {}
+
+    return await _make_vapi_call(
+        phone_number=phone,
+        system_prompt=_build_storm_wellness_check_prompt(patient.first_name),
+        metadata={
+            "patient_id": str(patient.id),
+            "call_type": "storm_wellness_check",
+            "storm_event_id": str(storm_event_id),
         },
     )

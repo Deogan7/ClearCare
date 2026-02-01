@@ -6,8 +6,13 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy.orm import selectinload
+
 from app.models.referral import Referral, ReferralStatus, AppointmentType
-from app.models.storm_mode import StormModeEvent, StormConversionLog, StormTrigger
+from app.models.storm_mode import (
+    StormModeEvent, StormConversionLog, StormDriverNotification,
+    StormTrigger, DriverNotificationStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +75,7 @@ async def activate_storm_mode(
         "window_hours": window_hours,
         "converted_count": converted,
         "activated_at": event.activated_at.isoformat(),
+        "event_id": str(event.id),
     }
 
 
@@ -101,6 +107,7 @@ async def get_storm_mode_status(db: AsyncSession) -> dict:
             "activated_at": None,
             "window_hours": None,
             "converted_count": 0,
+            "event_id": None,
         }
 
     return {
@@ -110,6 +117,7 @@ async def get_storm_mode_status(db: AsyncSession) -> dict:
         "window_hours": event.window_hours,
         "converted_count": event.converted_count,
         "activated_by": event.activated_by,
+        "event_id": str(event.id),
     }
 
 
@@ -147,6 +155,15 @@ async def _convert_eligible_appointments(
     """Convert all eligible in-person appointments to virtual and log each one."""
     referrals = await _get_eligible_referrals(db, event.window_hours)
 
+    # Eagerly load patients for driver notifications
+    for referral in referrals:
+        if not referral.patient:
+            await db.execute(
+                select(Referral)
+                .where(Referral.id == referral.id)
+                .options(selectinload(Referral.patient))
+            )
+
     for referral in referrals:
         prev_type = referral.appointment_type.value if referral.appointment_type else "in_person"
         referral.appointment_type = AppointmentType.VIRTUAL
@@ -164,6 +181,30 @@ async def _convert_eligible_appointments(
             new_type="virtual",
         )
         db.add(log_entry)
+
+        # Generate driver notification for appointments that had rides scheduled
+        if referral.ride_needed:
+            patient = referral.patient
+            patient_name = f"{patient.first_name} {patient.last_name}" if patient else "Patient"
+            date_str = (
+                referral.scheduled_date.strftime("%B %d at %I:%M %p")
+                if referral.scheduled_date else "upcoming date"
+            )
+            message = (
+                f"Clearwater Ridge Medical Clinic: The appointment for {patient_name} on "
+                f"{date_str} has been converted to virtual care due to severe weather. "
+                f"The ride is no longer needed. Thank you for volunteering!"
+            )
+            driver_notif = StormDriverNotification(
+                storm_event_id=event.id,
+                referral_id=referral.id,
+                ticket_id=referral.ticket_id,
+                driver_name="Volunteer Driver",
+                patient_name=patient_name,
+                message=message,
+                status=DriverNotificationStatus.SENT,
+            )
+            db.add(driver_notif)
 
     await db.flush()
     return len(referrals)

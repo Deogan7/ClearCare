@@ -1,3 +1,4 @@
+import uuid as _uuid
 from datetime import datetime
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from app.db.session import get_db
 from app.models.patient import Patient
 from app.models.user import User
 from app.models.referral import Referral, ReferralStatus, AppointmentType
+from app.models.storm_mode import StormWellnessCheck, WellnessCheckStatus
 from app.schemas.voice import (
     VerifyReferralRequest, VoiceCallResponse, WebhookResult, DemoCallRequest,
 )
@@ -80,6 +82,43 @@ _RIDE_NO_KEYWORDS = [
     "i can get there", "don't need",
 ]
 
+# Storm wellness check keyword sets
+_SYMPTOM_KEYWORDS = [
+    "chest pain", "shortness of breath", "dizzy", "dizziness",
+    "can't breathe", "heart", "pain", "nauseous", "weak",
+    "fell", "fallen", "hurt", "bleeding", "fever", "confused",
+]
+
+_FEELING_OK_KEYWORDS = [
+    "i'm fine", "doing well", "i'm good", "feeling good",
+    "no complaints", "doing okay", "feeling alright", "pretty good",
+    "can't complain", "all good",
+]
+
+_MEDICATION_OK_KEYWORDS = [
+    "enough medication", "stocked up", "plenty", "i'm good on meds",
+    "have enough", "week's worth", "enough to last", "refilled",
+    "picked up my prescription", "got my meds", "yes i do",
+]
+
+_MEDICATION_LOW_KEYWORDS = [
+    "running low", "almost out", "need a refill", "don't have enough",
+    "only a few days", "ran out", "need more", "short on",
+    "forgot to refill", "couldn't get", "pharmacy was closed",
+]
+
+_NEEDS_HELP_KEYWORDS = [
+    "need groceries", "need food", "could use some help",
+    "check on me", "come by", "someone to visit",
+    "need supplies", "running low on food", "yes please",
+]
+
+_NO_HELP_KEYWORDS = [
+    "i'm all set", "don't need anything", "i'm fine",
+    "no thank you", "got everything", "neighbor helps",
+    "family is here", "son is here", "daughter is here",
+]
+
 
 def _match_keywords(text: str, keywords: list[str]) -> bool:
     text_lower = text.lower()
@@ -132,6 +171,43 @@ def _analyze_reschedule(transcript: str) -> str:
     if _match_keywords(transcript, _NO_RESCHEDULE_KEYWORDS):
         return "no"
     return "unknown"
+
+
+def _analyze_wellness_check(transcript: str) -> dict:
+    """Analyze a storm wellness check call transcript."""
+    has_symptoms = _match_keywords(transcript, _SYMPTOM_KEYWORDS)
+    feeling_ok = _match_keywords(transcript, _FEELING_OK_KEYWORDS) and not has_symptoms
+    medication_ok = _match_keywords(transcript, _MEDICATION_OK_KEYWORDS)
+    medication_low = _match_keywords(transcript, _MEDICATION_LOW_KEYWORDS)
+    needs_help = _match_keywords(transcript, _NEEDS_HELP_KEYWORDS)
+    no_help = _match_keywords(transcript, _NO_HELP_KEYWORDS)
+
+    return {
+        "feeling_ok": feeling_ok if (feeling_ok or has_symptoms) else None,
+        "has_symptoms": has_symptoms,
+        "medication_stocked": (
+            True if medication_ok and not medication_low
+            else False if medication_low
+            else None
+        ),
+        "needs_assistance": (
+            True if needs_help and not no_help
+            else False if no_help
+            else None
+        ),
+    }
+
+
+def _extract_context_around(transcript: str, keywords: list[str]) -> str:
+    """Extract a brief snippet around matched keywords from the transcript."""
+    text_lower = transcript.lower()
+    for kw in keywords:
+        idx = text_lower.find(kw)
+        if idx >= 0:
+            start = max(0, idx - 50)
+            end = min(len(transcript), idx + len(kw) + 100)
+            return f"...{transcript[start:end]}..."
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +445,59 @@ async def vapi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     summary = message.get("summary", "")
     ended_reason = message.get("endedReason", "")
 
+    # --- Storm Wellness Check — handled separately (patient-level, not referral-level) ---
+    if call_type == "storm_wellness_check":
+        patient_id = metadata.get("patient_id")
+        storm_event_id = metadata.get("storm_event_id")
+
+        if not patient_id or not storm_event_id:
+            return WebhookResult(status="error", note="Missing patient_id or storm_event_id in wellness check metadata")
+
+        result = _analyze_wellness_check(transcript)
+
+        wc_result = await db.execute(
+            select(StormWellnessCheck).where(
+                StormWellnessCheck.patient_id == _uuid.UUID(patient_id),
+                StormWellnessCheck.storm_event_id == _uuid.UUID(storm_event_id),
+            )
+        )
+        wellness_check = wc_result.scalar_one_or_none()
+
+        if wellness_check:
+            wellness_check.status = WellnessCheckStatus.COMPLETED
+            wellness_check.feeling_ok = result["feeling_ok"]
+            wellness_check.has_symptoms = result["has_symptoms"]
+            wellness_check.medication_stocked = result["medication_stocked"]
+            wellness_check.needs_assistance = result["needs_assistance"]
+            wellness_check.transcript_summary = summary or transcript[:500]
+            wellness_check.completed_at = datetime.utcnow()
+
+            if result["has_symptoms"]:
+                wellness_check.symptom_details = _extract_context_around(transcript, _SYMPTOM_KEYWORDS)
+            if result["needs_assistance"]:
+                wellness_check.assistance_details = _extract_context_around(transcript, _NEEDS_HELP_KEYWORDS)
+
+            await db.commit()
+
+            flags = []
+            if result["has_symptoms"]:
+                flags.append("SYMPTOMS REPORTED")
+            if result["medication_stocked"] is False:
+                flags.append("LOW ON MEDICATION")
+            if result["needs_assistance"]:
+                flags.append("NEEDS ASSISTANCE")
+
+            note = f"[Storm Wellness] Check completed for patient {patient_id}."
+            if flags:
+                note += f" ALERTS: {', '.join(flags)}"
+            else:
+                note += " Patient is doing well."
+        else:
+            note = f"[Storm Wellness] No wellness check record found for patient {patient_id}."
+
+        return WebhookResult(status="processed", action="wellness_check_completed", note=note)
+
+    # --- All other call types require a ticket_id (referral-level) ---
     if not ticket_id:
         return WebhookResult(status="ignored", note="No ticket_id in call metadata")
 

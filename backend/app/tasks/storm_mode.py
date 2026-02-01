@@ -2,13 +2,15 @@
 
 Actions:
   1. Auto-convert upcoming in-person appointments to virtual care.
+  2. Trigger wellness check calls for high-risk patients.
 """
 
 import logging
+import uuid
 
 from app.db.session import async_session
 from app.models.storm_mode import StormTrigger
-from app.services import storm_mode_service
+from app.services import storm_mode_service, storm_wellness_service
 from app.services.weather_service import WeatherCondition
 
 logger = logging.getLogger(__name__)
@@ -33,3 +35,13 @@ async def activate_storm_mode(condition: WeatherCondition) -> None:
             "Storm Mode ACTIVATED (auto): %d appointment(s) converted.",
             result.get("converted_count", 0),
         )
+
+        # Trigger wellness checks for high-risk patients
+        if result.get("event_id"):
+            try:
+                async with async_session() as db:
+                    await storm_wellness_service.trigger_wellness_checks(
+                        db, uuid.UUID(result["event_id"])
+                    )
+            except Exception:
+                logger.exception("Failed to trigger wellness checks during auto-activation")

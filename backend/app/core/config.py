@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     # Demo mode — shortens all timers so the full workflow runs in minutes
     DEMO_MODE: bool = False
+    STORM_DEMO_PHONE: str = "+16478095930"  # Phone to call for storm wellness demo
 
     # Auth
     SECRET_KEY: str = "CHANGE-ME-IN-PRODUCTION"
