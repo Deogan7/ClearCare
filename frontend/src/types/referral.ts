@@ -24,6 +24,7 @@ export interface ReferralCreatePayload {
   patient_id: string;
   description?: string | null;
   referred_to: string;
+  specialist_phone?: string | null;
   action_date: string;
   scheduled_date?: string | null;
   notes?: string | null;

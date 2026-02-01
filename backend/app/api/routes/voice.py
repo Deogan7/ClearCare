@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.patient import Patient
 from app.models.user import User
@@ -160,16 +161,12 @@ async def demo_call(
 
     if body.step == 1:
         # --- Demo Step 1: Call "specialist" to verify receipt ---
-        first_message = (
-            f"Hello, this is RidgeCare Link calling on behalf of Clearwater Ridge Medical Clinic. "
-            f"We sent a referral for {patient_name}, ticket number {referral.ticket_id}, "
-            f"to {referral.referred_to}. Can you confirm whether you have received this referral?"
-        )
         try:
             result = await voice_service._make_vapi_call(
                 phone_number=body.phone,
-                first_message=first_message,
-                system_prompt=voice_service.SPECIALIST_VERIFY_PROMPT,
+                system_prompt=voice_service._build_specialist_verify_prompt(
+                    patient_name, referral.ticket_id
+                ),
                 metadata={
                     "ticket_id": referral.ticket_id,
                     "call_type": "demo_specialist_verify",
@@ -188,16 +185,12 @@ async def demo_call(
 
     elif body.step == 2:
         # --- Demo Step 2: Call "patient" for post-appointment follow-up ---
-        first_message = (
-            f"Hello {patient_name}, this is RidgeCare Link. "
-            f"We're following up on your recent specialist appointment with {referral.referred_to}. "
-            f"Were you able to attend the appointment?"
-        )
         try:
             result = await voice_service._make_vapi_call(
                 phone_number=body.phone,
-                first_message=first_message,
-                system_prompt=voice_service.PATIENT_POST_APPOINTMENT_PROMPT,
+                system_prompt=voice_service._build_patient_post_appointment_prompt(
+                    patient_name, referral.referred_to
+                ),
                 metadata={
                     "ticket_id": referral.ticket_id,
                     "call_type": "demo_patient_followup",
@@ -433,16 +426,25 @@ async def vapi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         result = _analyze_specialist_receipt(transcript)
         if result == "yes":
             await referral_service.transition_status(db, referral, ReferralStatus.REFERRAL_RECEIVED)
-            await referral_service.schedule_next_follow_up(db, referral, hours=48)
+            if settings.DEMO_MODE:
+                await referral_service.schedule_next_follow_up(db, referral, hours=0)  # immediate
+            else:
+                await referral_service.schedule_next_follow_up(db, referral, hours=48)
             action = "referral_received"
             note = "[Voice] Specialist confirmed referral receipt. Ticket updated to REFERRAL_RECEIVED."
         elif result == "no":
             await referral_service.transition_status(db, referral, ReferralStatus.RESENT_TO_SPECIALIST)
-            await referral_service.schedule_next_follow_up(db, referral, business_days=5)
+            if settings.DEMO_MODE:
+                await referral_service.schedule_next_follow_up(db, referral, hours=0)
+            else:
+                await referral_service.schedule_next_follow_up(db, referral, business_days=5)
             action = "not_received"
             note = "[Voice] Specialist has NOT received referral. Resending. Next follow-up in 5 business days."
         else:
-            await referral_service.schedule_next_follow_up(db, referral, hours=24)
+            if settings.DEMO_MODE:
+                await referral_service.schedule_next_follow_up(db, referral, hours=0)
+            else:
+                await referral_service.schedule_next_follow_up(db, referral, hours=24)
             action = "unclear"
             note = f"[Voice] Specialist call unclear. Will retry. Summary: {summary or 'none'}"
 
@@ -460,7 +462,10 @@ async def vapi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         else:
             if referral.status == ReferralStatus.REFERRAL_RECEIVED:
                 await referral_service.transition_status(db, referral, ReferralStatus.APPOINTMENT_SCHEDULING)
-            await referral_service.schedule_next_follow_up(db, referral, business_days=2)
+            if settings.DEMO_MODE:
+                await referral_service.schedule_next_follow_up(db, referral, hours=0)
+            else:
+                await referral_service.schedule_next_follow_up(db, referral, business_days=2)
             action = "not_scheduled_yet"
             note = "[Voice] Appointment not yet scheduled. Will follow up in 2 business days."
 
@@ -482,7 +487,9 @@ async def vapi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         else:
             note = "[Voice] Patient notified about appointment."
 
-        if referral.scheduled_date:
+        if settings.DEMO_MODE:
+            await referral_service.schedule_next_follow_up(db, referral, hours=0)
+        elif referral.scheduled_date:
             from app.services.referral_service import _add_business_days
             referral.next_follow_up_at = _add_business_days(referral.scheduled_date, 1)
         else:
@@ -511,7 +518,10 @@ async def vapi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         if result == "yes":
             await referral_service.transition_status(db, referral, ReferralStatus.RESCHEDULE_REQUESTED)
             await referral_service.transition_status(db, referral, ReferralStatus.SENT_TO_SPECIALIST)
-            await referral_service.schedule_next_follow_up(db, referral, hours=48)
+            if settings.DEMO_MODE:
+                await referral_service.schedule_next_follow_up(db, referral, hours=0)
+            else:
+                await referral_service.schedule_next_follow_up(db, referral, hours=48)
             referral.specialist_call_attempts = 0
             await db.commit()
             action = "reschedule_yes"

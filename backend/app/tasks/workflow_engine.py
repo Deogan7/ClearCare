@@ -38,6 +38,12 @@ async def _process_specialist_verification_calls(db) -> None:
 
     for referral in referrals:
         try:
+            # Clear next_follow_up_at BEFORE placing the call so the scheduler
+            # doesn't re-trigger while the call is in progress.  The webhook
+            # will set the next follow-up when it processes the result.
+            referral.next_follow_up_at = None
+            await db.commit()
+
             result = await voice_service.call_specialist_verify_receipt(referral)
             if result:
                 await referral_service.record_call_attempt(db, referral)
@@ -67,6 +73,9 @@ async def _process_appointment_check_calls(db) -> None:
 
     for referral in referrals:
         try:
+            referral.next_follow_up_at = None
+            await db.commit()
+
             result = await voice_service.call_specialist_check_appointment(referral)
             if result:
                 await referral_service.record_call_attempt(db, referral)
@@ -107,6 +116,9 @@ async def _process_post_appointment_followups(db) -> None:
 
     for referral in referrals:
         try:
+            referral.next_follow_up_at = None
+            await db.commit()
+
             result = await voice_service.call_patient_post_appointment(referral)
             if result:
                 logger.info("Workflow: Post-appointment call placed for %s.", referral.ticket_id)
