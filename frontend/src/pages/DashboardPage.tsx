@@ -5,6 +5,7 @@ import Button from "../components/common/Button";
 import Card from "../components/common/Card";
 import PageHeader from "../components/common/PageHeader";
 import StatCard from "../components/common/StatCard";
+import SideDrawer from "../components/common/SideDrawer";
 import { getPatients } from "../services/patientService";
 import { getReferrals } from "../services/referralService";
 import { getStormStatus } from "../services/weatherService";
@@ -20,7 +21,9 @@ interface ActivityItem {
 interface PriorityItem {
   id: string;
   label: string;
-  onClick: () => void;
+  taskType: string;
+  context: string;
+  dueLabel?: string;
 }
 
 function formatTime(value: Date) {
@@ -101,6 +104,8 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [lastWeatherCheck, setLastWeatherCheck] = useState<Date | null>(null);
   const [isStormSevere, setIsStormSevere] = useState(false);
+  const [overdueOpen, setOverdueOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -163,6 +168,14 @@ export default function DashboardPage() {
     });
   }, [referrals, today]);
 
+  const patientNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    patients.forEach((patient) => {
+      map.set(patient.id, `${patient.first_name} ${patient.last_name}`);
+    });
+    return map;
+  }, [patients]);
+
   const scheduledToday = useMemo(() => {
     return referrals.filter((referral) => {
       const scheduledDate = parseDate(referral.scheduled_date);
@@ -187,25 +200,31 @@ export default function DashboardPage() {
       items.push({
         id: "overdue-referrals",
         label: `${overdueReferrals.length} overdue referrals need follow-up`,
-        onClick: () => navigate("/referrals?overdue=true"),
+        taskType: "Follow-up",
+        context: "Overdue referrals",
+        dueLabel: "Overdue",
       });
     }
     if (scheduledToday.length > 0) {
       items.push({
         id: "scheduled-today",
         label: `${scheduledToday.length} referrals scheduled for today`,
-        onClick: () => navigate("/referrals?status=scheduled&date=today"),
+        taskType: "Confirm appointment",
+        context: "Referrals scheduled today",
+        dueLabel: "Today",
       });
     }
     if (highRiskPatients.length > 0) {
       items.push({
         id: "high-risk",
         label: `${highRiskPatients.length} high-risk patients need outreach`,
-        onClick: () => navigate("/patients?highRisk=true"),
+        taskType: "Outreach",
+        context: "High-risk patients",
+        dueLabel: "Today",
       });
     }
     return items;
-  }, [highRiskPatients.length, navigate, overdueReferrals.length, scheduledToday.length]);
+  }, [highRiskPatients.length, overdueReferrals.length, scheduledToday.length]);
 
   const alertState = useMemo(() => {
     if (isStormSevere || overdueReferrals.length > 1) {
@@ -224,8 +243,7 @@ export default function DashboardPage() {
         summary: isStormSevere
           ? "Severe weather conditions detected. Prioritize outreach."
           : "Multiple overdue referrals need immediate attention.",
-        actionLabel: "Review outreach",
-        action: () => navigate("/referrals?overdue=true"),
+        action: () => setOverdueOpen(true),
         isSevere: true,
       };
     }
@@ -233,19 +251,17 @@ export default function DashboardPage() {
       return {
         title: "Attention needed",
         summary: `${overdueReferrals.length} overdue referrals require follow-up today.`,
-        actionLabel: "View overdue",
-        action: () => navigate("/referrals?overdue=true"),
+        action: () => setOverdueOpen(true),
         isSevere: false,
       };
     }
     return {
       title: "All clear",
       summary: "No urgent items right now.",
-      actionLabel: "Trigger weather check",
       action: () => loadData(),
       isSevere: false,
     };
-  }, [alertState, isStormSevere, loadData, navigate, overdueReferrals.length]);
+  }, [alertState, isStormSevere, loadData, overdueReferrals.length]);
 
   const activityItems = useMemo<ActivityItem[]>(() => {
     const items: ActivityItem[] = [];
@@ -309,8 +325,8 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <PageHeader
             title="Dashboard"
             subtitle="Today's referral load, storm risk, and outreach activity."
@@ -319,43 +335,77 @@ export default function DashboardPage() {
           <div className="page-subtitle">{lastUpdatedLabel}</div>
         </div>
 
-        <Card title="Today's priorities">
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Compact horizontal action strip for priorities */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "10px 12px",
+            border: "1px solid #e5e7eb",
+            borderRadius: 10,
+            background: "#fff",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <strong>Today's priorities</strong>
             {priorities.length === 0 ? (
-              <div className="page-subtitle">No urgent tasks today.</div>
+              <span className="page-subtitle">No urgent tasks today.</span>
             ) : (
               priorities.map((item) => (
-                <Button
+                <button
                   key={item.id}
-                  variant="secondary"
-                  onClick={item.onClick}
+                  onClick={() => setTasksOpen(true)}
+                  className="button ghost"
+                  style={{ padding: "4px 8px" }}
                 >
                   {item.label}
-                </Button>
+                </button>
               ))
             )}
           </div>
-        </Card>
+          <button
+            onClick={() => setTasksOpen(true)}
+            className="button ghost"
+            style={{ padding: "4px 8px" }}
+          >
+            View all ?
+          </button>
+        </div>
 
-        <div className={`storm-banner ${alertContent.isSevere ? "severe" : "safe"}`}>
+        {/* Slim inline alert banner for attention state */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "8px 12px",
+            borderLeft: `4px solid ${alertState === "red" ? "#d14343" : alertState === "yellow" ? "#d1a943" : "#2f9a5a"}`,
+            background: "#f8fafc",
+            borderRadius: 8,
+          }}
+        >
           <div>
             <strong>{alertContent.title}</strong>
             <div className="page-subtitle">{alertContent.summary}</div>
             <div className="page-subtitle">{lastWeatherLabel}</div>
           </div>
-          <Button
-            variant={alertContent.isSevere ? "danger" : "secondary"}
+          <button
             onClick={alertContent.action}
+            className="button ghost"
+            style={{ padding: "4px 8px" }}
           >
-            {alertContent.actionLabel}
-          </Button>
+            {alertState === "green" ? "Run check ?" : "View overdue ?"}
+          </button>
         </div>
 
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 20,
+            gap: 16,
           }}
         >
           <ClickableStatCard
@@ -368,7 +418,7 @@ export default function DashboardPage() {
             label="Overdue follow-ups"
             value={`${overdueReferrals.length}`}
             helper="Needs review"
-            onClick={() => navigate("/referrals?overdue=true")}
+            onClick={() => setOverdueOpen(true)}
           />
           <ClickableStatCard
             label="High-risk patients"
@@ -384,21 +434,165 @@ export default function DashboardPage() {
           />
         </div>
 
-        <Card title="Recent activity">
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Dense, scrollable activity feed */}
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 10,
+            background: "#fff",
+            padding: "10px 12px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <strong>Recent activity</strong>
+            <button className="button ghost" style={{ padding: "4px 8px" }}>
+              View all activity ?
+            </button>
+          </div>
+          <div
+            style={{
+              maxHeight: 200,
+              overflowY: "auto",
+              marginTop: 8,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             {activityItems.length === 0 ? (
-              <div className="page-subtitle">No recent activity.</div>
+              <div className="page-subtitle" style={{ padding: "6px 0" }}>
+                No recent activity.
+              </div>
             ) : (
-              activityItems.map((item) => (
-                <div key={item.id} style={{ display: "flex", justifyContent: "space-between" }}>
+              activityItems.map((item, index) => (
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "6px 0",
+                    borderBottom: index === activityItems.length - 1 ? "none" : "1px solid #eef2f7",
+                  }}
+                >
                   <span>{item.label}</span>
                   <span className="page-subtitle">{timeAgo(item.timestamp, new Date())}</span>
                 </div>
               ))
             )}
           </div>
-        </Card>
+        </div>
       </div>
+      <SideDrawer
+        open={overdueOpen}
+        title="Overdue referrals"
+        onClose={() => setOverdueOpen(false)}
+      >
+        {/* Lightweight list keeps context visible behind the drawer */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {overdueReferrals.length === 0 ? (
+            <div className="page-subtitle">No overdue referrals.</div>
+          ) : (
+            overdueReferrals.map((referral) => {
+              const patientName =
+                patientNameById.get(referral.patient_id) ?? "Unknown patient";
+              const actionDate = parseDate(referral.action_date);
+              const daysOverdue = actionDate
+                ? Math.max(
+                    0,
+                    Math.floor(
+                      (toDateOnly(new Date()).getTime() -
+                        toDateOnly(actionDate).getTime()) /
+                        86400000
+                    )
+                  )
+                : 0;
+              const reason = referral.status === "missed"
+                ? "Missed appointment"
+                : referral.scheduled_date
+                ? "Follow-up overdue"
+                : "Not scheduled";
+
+              return (
+                <div
+                  key={referral.id}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{patientName}</div>
+                  <div className="page-subtitle">Referral {referral.ticket_id}</div>
+                  <div className="page-subtitle">
+                    {reason} • {daysOverdue}d overdue
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="button secondary" style={{ padding: "6px 10px" }}>
+                      Follow up
+                    </button>
+                    <button className="button ghost" style={{ padding: "6px 10px" }}>
+                      Reschedule
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <button
+            className="button ghost"
+            style={{ alignSelf: "flex-start" }}
+            onClick={() => navigate("/referrals")}
+          >
+            Open full referrals view ?
+          </button>
+        </div>
+      </SideDrawer>
+
+      <SideDrawer
+        open={tasksOpen}
+        title="Today's tasks"
+        onClose={() => setTasksOpen(false)}
+      >
+        {/* Tasks read as actions rather than raw referrals */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {priorities.length === 0 ? (
+            <div className="page-subtitle">No tasks for today.</div>
+          ) : (
+            priorities.map((task) => (
+              <div
+                key={task.id}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600 }}>{task.taskType}</div>
+                  <div className="page-subtitle">
+                    {task.context} • {task.label}
+                  </div>
+                </div>
+                <span className="badge warn">{task.dueLabel ?? "Today"}</span>
+              </div>
+            ))
+          )}
+          <button
+            className="button ghost"
+            style={{ alignSelf: "flex-start" }}
+            onClick={() => navigate("/referrals")}
+          >
+            View all referrals ?
+          </button>
+        </div>
+      </SideDrawer>
     </AppShell>
   );
 }
